@@ -33,7 +33,7 @@ import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
 import org.onosproject.incubator.net.intf.Interface;
 import org.onosproject.incubator.net.intf.InterfaceService;
-import org.onosproject.incubator.net.routing.Route;
+import org.onosproject.incubator.net.routing.IpRoute;
 import org.onosproject.incubator.net.routing.RouteService;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.Host;
@@ -228,7 +228,7 @@ public class SdnIpReactiveRouting {
         // Step1: Try to update the existing intent first if it exists.
         //
         IpPrefix ipPrefix = null;
-        Route route = null;
+        IpRoute route = null;
         if (config.isIpAddressLocal(dstIpAddress)) {
             if (dstIpAddress.isIp4()) {
                 ipPrefix = IpPrefix.valueOf(dstIpAddress,
@@ -260,32 +260,32 @@ public class SdnIpReactiveRouting {
                 trafficTypeClassifier(srcConnectPoint, dstIpAddress);
 
         switch (trafficType) {
-        case HOST_TO_INTERNET:
-            // If the destination IP address is outside the local SDN network.
-            // The Step 1 has already handled it. We do not need to do anything here.
-            intentRequestListener.setUpConnectivityHostToInternet(srcIpAddress,
-                    ipPrefix, route.nextHop());
-            break;
-        case INTERNET_TO_HOST:
-            intentRequestListener.setUpConnectivityInternetToHost(dstIpAddress);
-            break;
-        case HOST_TO_HOST:
-            intentRequestListener.setUpConnectivityHostToHost(dstIpAddress,
-                    srcIpAddress, srcMacAddress, srcConnectPoint);
-            break;
-        case INTERNET_TO_INTERNET:
-            log.trace("This is transit traffic, "
-                    + "the intent should be preinstalled already");
-            break;
-        case DROP:
-            // TODO here should setUpDropPacketIntent(...);
-            // We need a new type of intent here.
-            break;
-        case UNKNOWN:
-            log.trace("This is unknown traffic, so we do nothing");
-            break;
-        default:
-            break;
+            case HOST_TO_INTERNET:
+                // If the destination IP address is outside the local SDN network.
+                // The Step 1 has already handled it. We do not need to do anything here.
+                intentRequestListener.setUpConnectivityHostToInternet(srcIpAddress,
+                                                                      ipPrefix, route.ipNextHop());
+                break;
+            case INTERNET_TO_HOST:
+                intentRequestListener.setUpConnectivityInternetToHost(dstIpAddress);
+                break;
+            case HOST_TO_HOST:
+                intentRequestListener.setUpConnectivityHostToHost(dstIpAddress,
+                                                                  srcIpAddress, srcMacAddress, srcConnectPoint);
+                break;
+            case INTERNET_TO_INTERNET:
+                log.trace("This is transit traffic, "
+                                  + "the intent should be preinstalled already");
+                break;
+            case DROP:
+                // TODO here should setUpDropPacketIntent(...);
+                // We need a new type of intent here.
+                break;
+            case UNKNOWN:
+                log.trace("This is unknown traffic, so we do nothing");
+                break;
+            default:
+                break;
         }
     }
 
@@ -360,9 +360,9 @@ public class SdnIpReactiveRouting {
             }
         } else if (type == LocationType.INTERNET) {
             IpAddress nextHopIpAddress = null;
-            Route route = routeService.longestPrefixMatch(dstIpAddress);
+            IpRoute route = routeService.longestPrefixMatch(dstIpAddress);
             if (route != null) {
-                nextHopIpAddress = route.nextHop();
+                nextHopIpAddress = route.ipNextHop();
                 Interface it = interfaceService.getMatchingInterface(nextHopIpAddress);
                 if (it != null) {
                     return it.connectPoint();

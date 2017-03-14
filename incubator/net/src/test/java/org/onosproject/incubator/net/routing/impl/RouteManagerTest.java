@@ -27,6 +27,7 @@ import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.VlanId;
+import org.onosproject.incubator.net.routing.IpRoute;
 import org.onosproject.incubator.net.routing.ResolvedRoute;
 import org.onosproject.incubator.net.routing.Route;
 import org.onosproject.incubator.net.routing.RouteEvent;
@@ -160,7 +161,7 @@ public class RouteManagerTest {
      *
      * @param route route to add
      */
-    private void addRoute(Route route) {
+    private void addRoute(IpRoute route) {
         reset(routeListener);
 
         routeListener.event(anyObject(RouteEvent.class));
@@ -177,12 +178,13 @@ public class RouteManagerTest {
      */
     @Test
     public void testRouteAdd() {
-        Route route = new Route(Route.Source.STATIC, V4_PREFIX1, V4_NEXT_HOP1);
+        IpRoute route = new IpRoute(IpRoute.Source.STATIC, V4_PREFIX1,
+                                    V4_NEXT_HOP1);
         ResolvedRoute resolvedRoute = new ResolvedRoute(route, MAC1, CP1);
 
         verifyRouteAdd(route, resolvedRoute);
 
-        route = new Route(Route.Source.STATIC, V6_PREFIX1, V6_NEXT_HOP1);
+        route = new IpRoute(IpRoute.Source.STATIC, V6_PREFIX1, V6_NEXT_HOP1);
         resolvedRoute = new ResolvedRoute(route, MAC3, CP1);
 
         verifyRouteAdd(route, resolvedRoute);
@@ -213,50 +215,49 @@ public class RouteManagerTest {
      */
     @Test
     public void testRouteUpdate() {
-        Route route = new Route(Route.Source.STATIC, V4_PREFIX1, V4_NEXT_HOP1);
-        Route updatedRoute = new Route(Route.Source.STATIC, V4_PREFIX1, V4_NEXT_HOP2);
-        ResolvedRoute resolvedRoute = new ResolvedRoute(updatedRoute, MAC1, CP1);
+        IpRoute route = new IpRoute(IpRoute.Source.STATIC, V4_PREFIX1, V4_NEXT_HOP1);
+        IpRoute updatedRoute = new IpRoute(IpRoute.Source.STATIC, V4_PREFIX1, V4_NEXT_HOP2);
+
         ResolvedRoute updatedResolvedRoute = new ResolvedRoute(updatedRoute, MAC2, CP1);
 
-        verifyRouteRemoveThenAdd(route, updatedRoute, resolvedRoute, updatedResolvedRoute);
+        verifyRouteRemoveThenAdd(route, updatedRoute, updatedResolvedRoute);
 
         // Different prefix pointing to the same next hop.
         // In this case we expect to receive a ROUTE_UPDATED event.
-        route = new Route(Route.Source.STATIC, V4_PREFIX2, V4_NEXT_HOP1);
-        updatedRoute = new Route(Route.Source.STATIC, V4_PREFIX2, V4_NEXT_HOP2);
-        resolvedRoute = new ResolvedRoute(route, MAC1, CP1);
+        route = new IpRoute(IpRoute.Source.STATIC, V4_PREFIX2, V4_NEXT_HOP1);
+        updatedRoute = new IpRoute(IpRoute.Source.STATIC, V4_PREFIX2, V4_NEXT_HOP2);
         updatedResolvedRoute = new ResolvedRoute(updatedRoute, MAC2, CP1);
 
-        verifyRouteUpdated(route, updatedRoute, resolvedRoute, updatedResolvedRoute);
+        verifyRouteUpdated(route, updatedRoute, updatedResolvedRoute);
 
-        route = new Route(Route.Source.STATIC, V6_PREFIX1, V6_NEXT_HOP1);
-        updatedRoute = new Route(Route.Source.STATIC, V6_PREFIX1, V6_NEXT_HOP2);
-        resolvedRoute = new ResolvedRoute(route, MAC3, CP1);
+        route = new IpRoute(IpRoute.Source.STATIC, V6_PREFIX1, V6_NEXT_HOP1);
+        updatedRoute = new IpRoute(IpRoute.Source.STATIC, V6_PREFIX1, V6_NEXT_HOP2);
         updatedResolvedRoute = new ResolvedRoute(updatedRoute, MAC4, CP1);
 
-        verifyRouteRemoveThenAdd(route, updatedRoute, resolvedRoute, updatedResolvedRoute);
+        verifyRouteRemoveThenAdd(route, updatedRoute, updatedResolvedRoute);
     }
 
     /**
      * Tests updating a route and verifies that the route listener receives a
      * route remove event followed by a route add event.
      *
-     * @param original original route
-     * @param updated updated route
-     * @param resolvedRoute resolved route before update
+     * @param original             original route
+     * @param updated              updated route
      * @param updatedResolvedRoute resolved route that is expected to be sent to
      *                             the route listener
      */
-    private void verifyRouteRemoveThenAdd(Route original, Route updated,
-                                          ResolvedRoute resolvedRoute,
+    private void verifyRouteRemoveThenAdd(IpRoute original, Route updated,
                                           ResolvedRoute updatedResolvedRoute) {
         // First add the original route
         addRoute(original);
 
         routeListener.event(new RouteEvent(RouteEvent.Type.ROUTE_REMOVED,
-                new ResolvedRoute(original, resolvedRoute.nextHopMac(), resolvedRoute.location())));
+                                           new ResolvedRoute(original, null,
+                                                             null
+                                           )));
         expectLastCall().once();
-        routeListener.event(new RouteEvent(RouteEvent.Type.ROUTE_ADDED, updatedResolvedRoute));
+        routeListener.event(new RouteEvent(RouteEvent.Type.ROUTE_ADDED,
+                                           updatedResolvedRoute));
         expectLastCall().once();
 
         replay(routeListener);
@@ -270,20 +271,18 @@ public class RouteManagerTest {
      * Tests updating a route and verifies that the route listener receives a
      * route updated event.
      *
-     * @param original original route
-     * @param updated updated route
-     * @param resolvedRoute resolved route before update
+     * @param original             original route
+     * @param updated              updated route
      * @param updatedResolvedRoute resolved route that is expected to be sent to
      *                             the route listener
      */
-    private void verifyRouteUpdated(Route original, Route updated,
-                                    ResolvedRoute resolvedRoute,
+    private void verifyRouteUpdated(IpRoute original, IpRoute updated,
                                     ResolvedRoute updatedResolvedRoute) {
         // First add the original route
         addRoute(original);
 
         routeListener.event(new RouteEvent(RouteEvent.Type.ROUTE_UPDATED,
-                updatedResolvedRoute, resolvedRoute));
+                                           updatedResolvedRoute));
         expectLastCall().once();
 
         replay(routeListener);
@@ -298,15 +297,15 @@ public class RouteManagerTest {
      */
     @Test
     public void testRouteDelete() {
-        Route route = new Route(Route.Source.STATIC, V4_PREFIX1, V4_NEXT_HOP1);
-        ResolvedRoute removedResolvedRoute = new ResolvedRoute(route, MAC1, CP1);
+        IpRoute route = new IpRoute(IpRoute.Source.STATIC, V4_PREFIX1,
+                                    V4_NEXT_HOP1);
 
-        verifyDelete(route, removedResolvedRoute);
+        verifyDelete(route);
 
-        route = new Route(Route.Source.STATIC, V6_PREFIX1, V6_NEXT_HOP1);
-        removedResolvedRoute = new ResolvedRoute(route, MAC3, CP1);
+        route = new IpRoute(IpRoute.Source.STATIC, V6_PREFIX1, V6_NEXT_HOP1);
 
-        verifyDelete(route, removedResolvedRoute);
+        verifyDelete(route);
+
     }
 
     /**
@@ -314,13 +313,15 @@ public class RouteManagerTest {
      * the route listener.
      *
      * @param route route to delete
-     * @param removedResolvedRoute the resolved route being removed
      */
-    private void verifyDelete(Route route, ResolvedRoute removedResolvedRoute) {
+    private void verifyDelete(IpRoute route) {
         addRoute(route);
 
-        RouteEvent withdrawRouteEvent = new RouteEvent(RouteEvent.Type.ROUTE_REMOVED,
-                removedResolvedRoute);
+        RouteEvent withdrawRouteEvent = new RouteEvent(RouteEvent.Type
+                                                               .ROUTE_REMOVED,
+                                                       new ResolvedRoute(route,
+                                                                         null,
+                                                                         null));
 
         reset(routeListener);
         routeListener.event(withdrawRouteEvent);
@@ -338,7 +339,8 @@ public class RouteManagerTest {
      */
     @Test
     public void testAsyncRouteAdd() {
-        Route route = new Route(Route.Source.STATIC, V4_PREFIX1, V4_NEXT_HOP1);
+        IpRoute route = new IpRoute(IpRoute.Source.STATIC, V4_PREFIX1,
+                                    V4_NEXT_HOP1);
 
         // Host service will reply with no hosts when asked
         reset(hostService);

@@ -21,7 +21,7 @@ import org.apache.karaf.shell.commands.Command;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
 import org.onosproject.cli.AbstractShellCommand;
-import org.onosproject.incubator.net.routing.Route;
+import org.onosproject.incubator.net.routing.IpRoute;
 import org.onosproject.incubator.net.routing.RouteAdminService;
 
 import java.util.Collections;
@@ -48,7 +48,8 @@ public class RouteRemoveCommand extends AbstractShellCommand {
         IpPrefix prefix = IpPrefix.valueOf(prefixString);
         IpAddress nextHop = IpAddress.valueOf(nextHopString);
 
-        service.withdraw(Collections.singleton(new Route(Route.Source.STATIC, prefix, nextHop)));
+        service.withdraw(Collections.singleton(new IpRoute(IpRoute.Source
+                                                                   .STATIC, prefix, nextHop)));
     }
 
 }

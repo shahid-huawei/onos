@@ -33,7 +33,7 @@ public interface RouteService extends ListenerService<RouteEvent, RouteListener>
      *
      * @return map of route table name to routes in that table
      */
-    Map<RouteTableId, Collection<Route>> getAllRoutes();
+    Map<RouteTableType, Collection<Route>> getAllRoutes();
 
     /**
      * Performs a longest prefix match on the given IP address. The call will
@@ -43,7 +43,7 @@ public interface RouteService extends ListenerService<RouteEvent, RouteListener>
      * @param ip IP address
      * @return longest prefix matched route
      */
-    Route longestPrefixMatch(IpAddress ip);
+    IpRoute longestPrefixMatch(IpAddress ip);
 
     /**
      * Returns the routes for the given next hop.
@@ -52,6 +52,15 @@ public interface RouteService extends ListenerService<RouteEvent, RouteListener>
      * @return routes for this next hop
      */
     Collection<Route> getRoutesForNextHop(IpAddress nextHop);
+
+    /**
+     * Returns the routes for the given next hop.
+     *
+     * @param nextHop next hop IP address
+     * @return routes for this next hop
+     */
+    public Collection<Route> getRoutesForNextHop(RouteTableType id,
+                                                 NextHop nextHop);
 
     /**
      * Returns all next hops in the route store.

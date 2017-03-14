@@ -26,7 +26,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 /**
  * Describes an event about a route.
  */
-public class RouteEvent extends AbstractEvent<RouteEvent.Type, ResolvedRoute> {
+public class RouteEvent extends AbstractEvent<RouteEvent.Type, Route> {
 
     private final ResolvedRoute prevSubject;
 
@@ -37,7 +37,6 @@ public class RouteEvent extends AbstractEvent<RouteEvent.Type, ResolvedRoute> {
 
         /**
          * Route is new and the next hop is resolved.
-         * <p>
          * The subject of this event should be the route being added.
          * The prevSubject of this event should be null.
          */
@@ -45,7 +44,6 @@ public class RouteEvent extends AbstractEvent<RouteEvent.Type, ResolvedRoute> {
 
         /**
          * Route has updated information.
-         * <p>
          * The subject of this event should be the new route.
          * The prevSubject of this event should be the old route.
          */
@@ -53,7 +51,6 @@ public class RouteEvent extends AbstractEvent<RouteEvent.Type, ResolvedRoute> {
 
         /**
          * Route was removed or the next hop becomes unresolved.
-         * <p>
          * The subject of this event should be the route being removed.
          * The prevSubject of this event should be null.
          */
@@ -63,7 +60,7 @@ public class RouteEvent extends AbstractEvent<RouteEvent.Type, ResolvedRoute> {
     /**
      * Creates a new route event without specifying previous subject.
      *
-     * @param type event type
+     * @param type    event type
      * @param subject event subject
      */
     public RouteEvent(Type type, ResolvedRoute subject) {
@@ -72,27 +69,14 @@ public class RouteEvent extends AbstractEvent<RouteEvent.Type, ResolvedRoute> {
     }
 
     /**
-     * Creates a new route event.
+     * Creates a new route event without specifying previous subject.
      *
-     * @param type event type
+     * @param type    event type
      * @param subject event subject
-     * @param time event time
      */
-    protected RouteEvent(Type type, ResolvedRoute subject, long time) {
-        super(type, subject, time);
-        this.prevSubject = null;
-    }
-
-    /**
-     * Creates a new route event with previous subject.
-     *
-     * @param type event type
-     * @param subject event subject
-     * @param prevSubject previous subject
-     */
-    public RouteEvent(Type type, ResolvedRoute subject, ResolvedRoute prevSubject) {
+    public RouteEvent(Type type, Route subject) {
         super(type, subject);
-        this.prevSubject = prevSubject;
+        this.prevSubject = null;
     }
 
     /**
@@ -102,6 +86,30 @@ public class RouteEvent extends AbstractEvent<RouteEvent.Type, ResolvedRoute> {
      */
     public ResolvedRoute prevSubject() {
         return prevSubject;
+    }
+
+    /**
+     * Creates a new route event.
+     *
+     * @param type    event type
+     * @param subject event subject
+     * @param time    event time
+     */
+    protected RouteEvent(Type type, Route subject, long time) {
+        super(type, subject, time);
+        this.prevSubject = null;
+    }
+
+    /**
+     * Creates a new route event with previous subject.
+     *
+     * @param type        event type
+     * @param subject     event subject
+     * @param prevSubject previous subject
+     */
+    public RouteEvent(Type type, ResolvedRoute subject, ResolvedRoute prevSubject) {
+        super(type, subject);
+        this.prevSubject = prevSubject;
     }
 
     @Override

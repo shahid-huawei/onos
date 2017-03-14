@@ -28,7 +28,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 /**
  * Represents a route with the next hop MAC address resolved.
  */
-public class ResolvedRoute {
+public class ResolvedRoute implements Route {
 
     private final IpPrefix prefix;
     private final IpAddress nextHop;
@@ -38,13 +38,14 @@ public class ResolvedRoute {
     /**
      * Creates a new resolved route.
      *
-     * @param route input route
+     * @param route      input route
      * @param nextHopMac next hop MAC address
-     * @param location connect point where the next hop connects to
+     * @param location   connect point where the next hop connects to
      */
-    public ResolvedRoute(Route route, MacAddress nextHopMac, ConnectPoint location) {
+    public ResolvedRoute(IpRoute route, MacAddress nextHopMac, ConnectPoint
+            location) {
         this.prefix = route.prefix();
-        this.nextHop = route.nextHop();
+        this.nextHop = ((IpNextHop) route.nextHop()).ip();
         this.nextHopMac = nextHopMac;
         this.location = location;
     }
@@ -52,10 +53,10 @@ public class ResolvedRoute {
     /**
      * Creates a new resolved route.
      *
-     * @param prefix route prefix
-     * @param nextHop route next hop IP address
+     * @param prefix     route prefix
+     * @param nextHop    route next hop IP address
      * @param nextHopMac next hop MAC address
-     * @param location connect point where the next hop connects to
+     * @param location   connect point where the next hop connects to
      */
     public ResolvedRoute(IpPrefix prefix, IpAddress nextHop, MacAddress nextHopMac,
                          ConnectPoint location) {
@@ -79,8 +80,9 @@ public class ResolvedRoute {
      *
      * @return IP address
      */
-    public IpAddress nextHop() {
-        return nextHop;
+    @Override
+    public NextHop nextHop() {
+        return IpNextHop.ipAddress(nextHop);
     }
 
     /**
@@ -90,6 +92,15 @@ public class ResolvedRoute {
      */
     public MacAddress nextHopMac() {
         return nextHopMac;
+    }
+
+    /**
+     * Returns the next hop IP address.
+     *
+     * @return IP address
+     */
+    public IpAddress ipNextHop() {
+        return nextHop;
     }
 
     /**

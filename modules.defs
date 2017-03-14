@@ -179,18 +179,8 @@ ONOS_APPS = [
     '//apps/yms:onos-apps-yms-oar',
     '//apps/ofagent:onos-apps-ofagent-oar',
     '//apps/mappingmanagement:onos-apps-mappingmanagement-oar',
-    '//apps/config:onos-apps-config-oar',
-    '//apps/netconf:onos-apps-netconf-oar',
-    '//apps/tetopology:onos-apps-tetopology-oar',
-    '//apps/tetunnel:onos-apps-tetunnel-oar',
-    '//apps/tenbi/yangmodel:onos-apps-tenbi-yangmodel-feature',
-    '//apps/tenbi:onos-apps-tenbi-oar',
-    '//protocols/restconf/server:onos-protocols-restconf-server-oar',
-    '//apps/restconf:onos-apps-restconf-oar',
-    '//apps/flowspec-api:onos-apps-flowspec-api-oar',
-    '//apps/yang:onos-apps-yang-oar',
-    '//apps/yang-gui:onos-apps-yang-gui-oar',
-    '//apps/cord-support:onos-apps-cord-support-oar'
+    '//apps/gluon:onos-apps-gluon-oar',
+    '//apps/evpnopenflow:onos-apps-evpnopenflow-oar',
 ]
 
 APP_JARS = [

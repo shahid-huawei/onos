@@ -20,6 +20,8 @@ import com.google.common.collect.ImmutableSet;
 import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
 import org.onlab.packet.VlanId;
+import org.onosproject.incubator.net.routing.IpNextHop;
+import org.onosproject.incubator.net.routing.IpRoute;
 import org.onosproject.incubator.net.routing.ResolvedRoute;
 import org.onosproject.incubator.net.routing.RouteEvent;
 import org.onosproject.net.ConnectPoint;
@@ -40,19 +42,25 @@ public class RouteHandler {
 
     protected void init(DeviceId deviceId) {
         srManager.routeService.getNextHops().forEach(nextHop -> {
-            if (nextHop.location().deviceId().equals(deviceId)) {
-                srManager.routeService.getRoutesForNextHop(nextHop.ip()).forEach(route -> {
-                    ResolvedRoute resolvedRoute =
-                            new ResolvedRoute(route, nextHop.mac(), nextHop.location());
-                    processRouteAddedInternal(resolvedRoute);
-                });
+            if (nextHop instanceof IpNextHop) {
+                IpNextHop ipNextHop = (IpNextHop) nextHop;
+                if (ipNextHop.location().deviceId().equals(deviceId)) {
+                    srManager.routeService.getRoutesForNextHop(ipNextHop.ip()).forEach(route -> {
+                        if (route instanceof IpRoute) {
+                            IpRoute ipRoute = (IpRoute) route;
+                            ResolvedRoute resolvedRoute =
+                                    new ResolvedRoute(ipRoute, ipNextHop.mac(), ipNextHop.location());
+                            processRouteAddedInternal(resolvedRoute);
+                        }
+                    });
+                }
             }
         });
     }
 
     protected void processRouteAdded(RouteEvent event) {
         log.info("processRouteAdded {}", event);
-        processRouteAddedInternal(event.subject());
+        processRouteAddedInternal((ResolvedRoute) event.subject());
     }
 
     private void processRouteAddedInternal(ResolvedRoute route) {
@@ -66,18 +74,18 @@ public class RouteHandler {
         srManager.deviceConfiguration.addSubnet(location, prefix);
         srManager.defaultRoutingHandler.populateSubnet(location, ImmutableSet.of(prefix));
         srManager.routingRulePopulator.populateRoute(location.deviceId(), prefix,
-                nextHopMac, nextHopVlan, location.port());
+                                                     nextHopMac, nextHopVlan, location.port());
     }
 
     protected void processRouteUpdated(RouteEvent event) {
         log.info("processRouteUpdated {}", event);
         processRouteRemovedInternal(event.prevSubject());
-        processRouteAddedInternal(event.subject());
+        processRouteAddedInternal((ResolvedRoute) event.subject());
     }
 
     protected void processRouteRemoved(RouteEvent event) {
         log.info("processRouteRemoved {}", event);
-        processRouteRemovedInternal(event.subject());
+        processRouteRemovedInternal((ResolvedRoute) event.subject());
     }
 
     private void processRouteRemovedInternal(ResolvedRoute route) {

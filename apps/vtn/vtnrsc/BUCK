@@ -3,6 +3,7 @@ COMPILE_DEPS = [
     '//lib:org.apache.karaf.shell.console',
     '//cli:onos-cli',
     '//core/store/serializers:onos-core-serializers',
+  '//apps/gluon:onos-apps-gluon',
 ]
 
 TEST_DEPS = [

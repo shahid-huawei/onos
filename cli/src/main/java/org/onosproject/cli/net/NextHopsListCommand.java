@@ -18,6 +18,7 @@ package org.onosproject.cli.net;
 
 import org.apache.karaf.shell.commands.Command;
 import org.onosproject.cli.AbstractShellCommand;
+import org.onosproject.incubator.net.routing.IpNextHop;
 import org.onosproject.incubator.net.routing.NextHop;
 import org.onosproject.incubator.net.routing.Route;
 import org.onosproject.incubator.net.routing.RouteService;
@@ -49,8 +50,12 @@ public class NextHopsListCommand extends AbstractShellCommand {
         Set<NextHop> nextHops = service.getNextHops();
 
         nextHops.forEach(nextHop -> {
-            Collection<Route> routes = service.getRoutesForNextHop(nextHop.ip());
-            print(FORMAT, nextHop.ip(), nextHop.mac(), nextHop.location(), routes.size());
+            if (nextHop instanceof IpNextHop) {
+                IpNextHop ipNextHop = (IpNextHop) nextHop;
+
+                Collection<Route> routes = service.getRoutesForNextHop(ipNextHop.ip());
+                print(FORMAT, ipNextHop.ip(), ipNextHop.mac(), ipNextHop.location(), routes.size());
+            }
         });
     }
 

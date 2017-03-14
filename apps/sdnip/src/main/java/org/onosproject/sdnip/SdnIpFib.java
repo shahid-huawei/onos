@@ -124,7 +124,7 @@ public class SdnIpFib {
             EncapsulationType encap = encap();
             MultiPointToSinglePointIntent intent =
                     generateRouteIntent(prefix,
-                                        route.nextHop(),
+                                        route.ipNextHop(),
                                         route.nextHopMac(),
                                         encap);
 
@@ -459,16 +459,18 @@ public class SdnIpFib {
     private class InternalRouteListener implements RouteListener {
         @Override
         public void event(RouteEvent event) {
-            switch (event.type()) {
-            case ROUTE_ADDED:
-            case ROUTE_UPDATED:
-                update(event.subject());
-                break;
-            case ROUTE_REMOVED:
-                withdraw(event.subject());
-                break;
-            default:
-                break;
+            if (event.subject() instanceof ResolvedRoute) {
+                switch (event.type()) {
+                    case ROUTE_ADDED:
+                    case ROUTE_UPDATED:
+                        update((ResolvedRoute) event.subject());
+                        break;
+                    case ROUTE_REMOVED:
+                        withdraw((ResolvedRoute) event.subject());
+                        break;
+                    default:
+                        break;
+                }
             }
         }
     }
@@ -498,18 +500,18 @@ public class SdnIpFib {
         @Override
         public void event(InterfaceEvent event) {
             switch (event.type()) {
-            case INTERFACE_ADDED:
-                addInterface(event.subject());
-                break;
-            case INTERFACE_UPDATED:
-                removeInterface(event.prevSubject());
-                addInterface(event.subject());
-                break;
-            case INTERFACE_REMOVED:
-                removeInterface(event.subject());
-                break;
-            default:
-                break;
+                case INTERFACE_ADDED:
+                    addInterface(event.subject());
+                    break;
+                case INTERFACE_UPDATED:
+                    removeInterface(event.prevSubject());
+                    addInterface(event.subject());
+                    break;
+                case INTERFACE_REMOVED:
+                    removeInterface(event.subject());
+                    break;
+                default:
+                    break;
             }
         }
     }

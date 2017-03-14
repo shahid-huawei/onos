@@ -26,12 +26,14 @@ import org.apache.felix.scr.annotations.Service;
 import org.onlab.packet.IpAddress;
 import org.onlab.util.Tools;
 import org.onosproject.cfg.ComponentConfigService;
+import org.onosproject.incubator.net.routing.IpRoute;
+import org.onosproject.incubator.net.routing.NextHop;
 import org.onosproject.incubator.net.routing.NextHopData;
 import org.onosproject.incubator.net.routing.Route;
 import org.onosproject.incubator.net.routing.RouteEvent;
 import org.onosproject.incubator.net.routing.RouteStore;
 import org.onosproject.incubator.net.routing.RouteStoreDelegate;
-import org.onosproject.incubator.net.routing.RouteTableId;
+import org.onosproject.incubator.net.routing.RouteTableType;
 import org.onosproject.store.AbstractStore;
 import org.onosproject.store.service.StorageService;
 import org.osgi.service.component.ComponentContext;
@@ -150,23 +152,28 @@ public class RouteStoreImpl extends AbstractStore<RouteEvent, RouteStoreDelegate
     }
 
     @Override
-    public Set<RouteTableId> getRouteTables() {
+    public Set<RouteTableType> getRouteTables() {
         return currentRouteStore.getRouteTables();
     }
 
     @Override
-    public Collection<Route> getRoutes(RouteTableId table) {
+    public Collection<Route> getRoutes(RouteTableType table) {
         return currentRouteStore.getRoutes(table);
     }
 
     @Override
-    public Route longestPrefixMatch(IpAddress ip) {
+    public IpRoute longestPrefixMatch(IpAddress ip) {
         return currentRouteStore.longestPrefixMatch(ip);
     }
 
     @Override
     public Collection<Route> getRoutesForNextHop(IpAddress ip) {
         return currentRouteStore.getRoutesForNextHop(ip);
+    }
+
+    @Override
+    public Collection<Route> getRoutesForNextHop(RouteTableType id, NextHop nextHop) {
+        return null;
     }
 
     @Override

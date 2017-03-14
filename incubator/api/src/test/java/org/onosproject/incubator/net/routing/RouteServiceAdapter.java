@@ -37,17 +37,22 @@ public class RouteServiceAdapter implements RouteAdminService {
     }
 
     @Override
-    public Map<RouteTableId, Collection<Route>> getAllRoutes() {
+    public Map<RouteTableType, Collection<Route>> getAllRoutes() {
         return null;
     }
 
     @Override
-    public Route longestPrefixMatch(IpAddress ip) {
+    public IpRoute longestPrefixMatch(IpAddress ip) {
         return null;
     }
 
     @Override
     public Collection<Route> getRoutesForNextHop(IpAddress nextHop) {
+        return null;
+    }
+
+    @Override
+    public Collection<Route> getRoutesForNextHop(RouteTableType id, NextHop nextHop) {
         return null;
     }
 

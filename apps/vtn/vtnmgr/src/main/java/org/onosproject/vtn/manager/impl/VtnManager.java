@@ -942,11 +942,13 @@ public class VtnManager implements VtnService {
         HostId hostId = HostId.hostId(vPort.macAddress());
         BasicHostConfig basicHostConfig = networkConfigService.addConfig(hostId,
                                                                          BasicHostConfig.class);
-        Set<IpAddress> ips = hostService.getHost(hostId).ipAddresses();
-        for (FixedIp fixedIp : vPort.fixedIps()) {
-            ips.remove(fixedIp.ip());
+        if (hostService.getHost(hostId) != null) {
+            Set<IpAddress> ips = hostService.getHost(hostId).ipAddresses();
+            for (FixedIp fixedIp : vPort.fixedIps()) {
+                ips.remove(fixedIp.ip());
+            }
+            basicHostConfig.setIps(ips).apply();
         }
-        basicHostConfig.setIps(ips).apply();
     }
 
     private void programInterfacesSet(Set<RouterInterface> interfacesSet,

@@ -15,10 +15,7 @@
  */
 package org.onosproject.bgpio.protocol.ver4;
 
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-
+import com.google.common.base.MoreObjects;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.onlab.packet.IpPrefix;
 import org.onosproject.bgpio.exceptions.BgpParseException;
@@ -29,16 +26,17 @@ import org.onosproject.bgpio.protocol.BgpUpdateMsg;
 import org.onosproject.bgpio.protocol.BgpVersion;
 import org.onosproject.bgpio.types.BgpErrorType;
 import org.onosproject.bgpio.types.BgpHeader;
+import org.onosproject.bgpio.types.BgpValueType;
 import org.onosproject.bgpio.types.MpReachNlri;
 import org.onosproject.bgpio.types.MpUnReachNlri;
 import org.onosproject.bgpio.util.Constants;
 import org.onosproject.bgpio.util.Validation;
-
-import org.onosproject.bgpio.types.BgpValueType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.base.MoreObjects;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * BGP Update Message: UPDATE messages are used to transfer routing information
@@ -84,10 +82,10 @@ public class BgpUpdateMsgVer4 implements BgpUpdateMsg {
     public static final int MIN_LEN_AFTER_WITHDRW_ROUTES = 2;
     public static final int MINIMUM_COMMON_HEADER_LENGTH = 19;
     public static final BgpType MSG_TYPE = BgpType.UPDATE;
-    public static byte[] marker = new byte[] {(byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
-                                              (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
-                                              (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
-                                              (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff};
+    public static byte[] marker = new byte[]{(byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
+            (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
+            (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
+            (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff};
     public static final BgpHeader DEFAULT_UPDATE_HEADER = new BgpHeader(marker,
                                                                         (short) PACKET_MINIMUM_LENGTH, (byte) 0X02);
     public static final BgpUpdateMsgVer4.Reader READER = new Reader();
@@ -100,13 +98,13 @@ public class BgpUpdateMsgVer4 implements BgpUpdateMsg {
     /**
      * Constructor to initialize parameters for BGP Update message.
      *
-     * @param bgpHeader in Update message
-     * @param withdrawnRoutes withdrawn routes
+     * @param bgpHeader         in Update message
+     * @param withdrawnRoutes   withdrawn routes
      * @param bgpPathAttributes BGP Path attributes
-     * @param nlri Network Layer Reachability Information
+     * @param nlri              Network Layer Reachability Information
      */
     public BgpUpdateMsgVer4(BgpHeader bgpHeader, List<IpPrefix> withdrawnRoutes,
-                     BgpPathAttributes bgpPathAttributes, List<IpPrefix> nlri) {
+                            BgpPathAttributes bgpPathAttributes, List<IpPrefix> nlri) {
         this.bgpHeader = bgpHeader;
         this.withdrawnRoutes = withdrawnRoutes;
         this.bgpPathAttributes = bgpPathAttributes;
@@ -124,7 +122,7 @@ public class BgpUpdateMsgVer4 implements BgpUpdateMsg {
 
             if (cb.readableBytes() != (bgpHeader.getLength() - MINIMUM_COMMON_HEADER_LENGTH)) {
                 Validation.validateLen(BgpErrorType.UPDATE_MESSAGE_ERROR,
-                        BgpErrorType.BAD_MESSAGE_LENGTH, bgpHeader.getLength());
+                                       BgpErrorType.BAD_MESSAGE_LENGTH, bgpHeader.getLength());
             }
 
             LinkedList<IpPrefix> withDrwRoutes = new LinkedList<>();
@@ -135,8 +133,8 @@ public class BgpUpdateMsgVer4 implements BgpUpdateMsg {
 
             if (cb.readableBytes() < withDrwLen) {
                 Validation.validateLen(BgpErrorType.UPDATE_MESSAGE_ERROR,
-                        BgpErrorType.MALFORMED_ATTRIBUTE_LIST,
-                        cb.readableBytes());
+                                       BgpErrorType.MALFORMED_ATTRIBUTE_LIST,
+                                       cb.readableBytes());
             }
             log.debug("Reading withdrawn routes length");
             ChannelBuffer tempCb = cb.readBytes(withDrwLen);
@@ -148,7 +146,7 @@ public class BgpUpdateMsgVer4 implements BgpUpdateMsg {
             if (cb.readableBytes() < MIN_LEN_AFTER_WITHDRW_ROUTES) {
                 log.debug("Bgp path attribute len field not present");
                 throw new BgpParseException(BgpErrorType.UPDATE_MESSAGE_ERROR,
-                        BgpErrorType.MALFORMED_ATTRIBUTE_LIST, null);
+                                            BgpErrorType.MALFORMED_ATTRIBUTE_LIST, null);
             }
 
             // Reading Total Path Attribute Length
@@ -156,7 +154,7 @@ public class BgpUpdateMsgVer4 implements BgpUpdateMsg {
             int len = withDrwLen + totPathAttrLen + PACKET_MINIMUM_LENGTH;
             if (len > bgpHeader.getLength()) {
                 throw new BgpParseException(BgpErrorType.UPDATE_MESSAGE_ERROR,
-                        BgpErrorType.MALFORMED_ATTRIBUTE_LIST, null);
+                                            BgpErrorType.MALFORMED_ATTRIBUTE_LIST, null);
             }
             log.debug("Total path attribute length read");
             if (totPathAttrLen != 0) {
@@ -175,7 +173,7 @@ public class BgpUpdateMsgVer4 implements BgpUpdateMsg {
                 nlri = parseNlri(cb);
             }
             return new BgpUpdateMsgVer4(bgpHeader, withDrwRoutes,
-                    bgpPathAttributes, nlri);
+                                        bgpPathAttributes, nlri);
         }
     }
 
@@ -246,8 +244,14 @@ public class BgpUpdateMsgVer4 implements BgpUpdateMsg {
                     }
                 }
 
-                if ((afi == Constants.AFI_FLOWSPEC_VALUE) || (afi == Constants.AFI_VALUE)) {
+                if ((afi == Constants.AFI_FLOWSPEC_VALUE)
+                        || (afi == Constants.AFI_VALUE)) {
                     //unfeasible route length
+                    cb.writeShort(0);
+                }
+
+                if ((afi == Constants.AFI_EVPN_VALUE)
+                        && (safi == Constants.SAFI_EVPN_VALUE)) {
                     cb.writeShort(0);
                 }
 
@@ -278,7 +282,7 @@ public class BgpUpdateMsgVer4 implements BgpUpdateMsg {
             int length = cb.readByte();
             IpPrefix ipPrefix;
             if (length == 0) {
-                byte[] prefix = new byte[] {0};
+                byte[] prefix = new byte[]{0};
                 ipPrefix = Validation.bytesToPrefix(prefix, length);
                 nlri.add(ipPrefix);
             } else {
@@ -289,8 +293,8 @@ public class BgpUpdateMsgVer4 implements BgpUpdateMsg {
                 }
                 if (cb.readableBytes() < len) {
                     Validation.validateLen(BgpErrorType.UPDATE_MESSAGE_ERROR,
-                            BgpErrorType.MALFORMED_ATTRIBUTE_LIST,
-                            cb.readableBytes());
+                                           BgpErrorType.MALFORMED_ATTRIBUTE_LIST,
+                                           cb.readableBytes());
                 }
                 byte[] prefix = new byte[len];
                 cb.readBytes(prefix, 0, len);
@@ -315,7 +319,7 @@ public class BgpUpdateMsgVer4 implements BgpUpdateMsg {
             int length = cb.readByte();
             IpPrefix ipPrefix;
             if (length == 0) {
-                byte[] prefix = new byte[] {0};
+                byte[] prefix = new byte[]{0};
                 ipPrefix = Validation.bytesToPrefix(prefix, length);
                 withDrwRoutes.add(ipPrefix);
             } else {

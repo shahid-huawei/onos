@@ -18,27 +18,43 @@ package org.onosproject.incubator.store.routing.impl;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.googlecode.concurrenttrees.common.KeyValuePair;
 import com.googlecode.concurrenttrees.radix.node.concrete.DefaultByteArrayNodeFactory;
 import com.googlecode.concurrenttrees.radixinverted.ConcurrentInvertedRadixTree;
 import com.googlecode.concurrenttrees.radixinverted.InvertedRadixTree;
+import org.apache.felix.scr.annotations.Activate;
+import org.apache.felix.scr.annotations.Component;
+import org.apache.felix.scr.annotations.Service;
 import org.onlab.packet.IpAddress;
 import org.onlab.packet.IpPrefix;
+import org.onosproject.incubator.net.routing.EvpnInstanceName;
+import org.onosproject.incubator.net.routing.EvpnInstanceNextHop;
+import org.onosproject.incubator.net.routing.EvpnInstancePrefix;
+import org.onosproject.incubator.net.routing.EvpnInstanceRoute;
+import org.onosproject.incubator.net.routing.EvpnNextHop;
+import org.onosproject.incubator.net.routing.EvpnPrefix;
+import org.onosproject.incubator.net.routing.EvpnRoute;
+import org.onosproject.incubator.net.routing.IpNextHop;
+import org.onosproject.incubator.net.routing.IpRoute;
+import org.onosproject.incubator.net.routing.NextHop;
 import org.onosproject.incubator.net.routing.NextHopData;
 import org.onosproject.incubator.net.routing.ResolvedRoute;
 import org.onosproject.incubator.net.routing.Route;
 import org.onosproject.incubator.net.routing.RouteEvent;
 import org.onosproject.incubator.net.routing.RouteStore;
 import org.onosproject.incubator.net.routing.RouteStoreDelegate;
-import org.onosproject.incubator.net.routing.RouteTableId;
+import org.onosproject.incubator.net.routing.RouteTable;
+import org.onosproject.incubator.net.routing.RouteTableType;
 import org.onosproject.store.AbstractStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -47,31 +63,33 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static org.onosproject.incubator.net.routing.RouteTools.createBinaryString;
 
 /**
  * Route store based on in-memory storage.
  */
+@Service
+@Component
 public class LocalRouteStore extends AbstractStore<RouteEvent, RouteStoreDelegate>
         implements RouteStore {
 
     private Logger log = LoggerFactory.getLogger(getClass());
 
-    private Map<RouteTableId, RouteTable> routeTables;
-    private static final RouteTableId IPV4 = new RouteTableId("ipv4");
-    private static final RouteTableId IPV6 = new RouteTableId("ipv6");
+    private Map<RouteTableType, RouteTable> routeTables;
+    //private static final RouteTableId IPV4 = new RouteTableId("ipv4");
+    //private static final RouteTableId IPV6 = new RouteTableId("ipv6");
 
     private Map<IpAddress, NextHopData> nextHops = new ConcurrentHashMap<>();
 
     /**
      * Sets up local route store.
      */
+    @Activate
     public void activate() {
         routeTables = new ConcurrentHashMap<>();
-
-        routeTables.put(IPV4, new RouteTable());
-        routeTables.put(IPV6, new RouteTable());
-
+        routeTables.put(RouteTableType.IPV4, new IpRouteTable());
+        routeTables.put(RouteTableType.IPV6, new IpRouteTable());
+        routeTables.put(RouteTableType.EVPN_IPV4, new EvpnRouteTable());
+        routeTables.put(RouteTableType.EVPN_IPV6, new EvpnRouteTable());
         log.info("Started");
     }
 
@@ -91,20 +109,24 @@ public class LocalRouteStore extends AbstractStore<RouteEvent, RouteStoreDelegat
     public void removeRoute(Route route) {
         RouteTable table = getDefaultRouteTable(route);
         table.remove(route);
-        Collection<Route> routes = table.getRoutesForNextHop(route.nextHop());
 
-        if (routes.isEmpty()) {
-            nextHops.remove(route.nextHop());
+        //currently handling next hops only for IpRoute.
+        if (route instanceof IpRoute) {
+            Collection<Route> routes = table.getRoutesForNextHop(route.nextHop());
+            IpRoute ipRoute = (IpRoute) route;
+            if (routes.isEmpty()) {
+                nextHops.remove(ipRoute.ipNextHop());
+            }
         }
     }
 
     @Override
-    public Set<RouteTableId> getRouteTables() {
+    public Set<RouteTableType> getRouteTables() {
         return routeTables.keySet();
     }
 
     @Override
-    public Collection<Route> getRoutes(RouteTableId table) {
+    public Collection<Route> getRoutes(RouteTableType table) {
         RouteTable routeTable = routeTables.get(table);
         if (routeTable == null) {
             return Collections.emptySet();
@@ -113,32 +135,52 @@ public class LocalRouteStore extends AbstractStore<RouteEvent, RouteStoreDelegat
     }
 
     @Override
-    public Route longestPrefixMatch(IpAddress ip) {
+    public IpRoute longestPrefixMatch(IpAddress ip) {
         return getDefaultRouteTable(ip).longestPrefixMatch(ip);
     }
 
     @Override
     public Collection<Route> getRoutesForNextHop(IpAddress ip) {
-        return getDefaultRouteTable(ip).getRoutesForNextHop(ip);
+        return getDefaultRouteTable(ip).getRoutesForNextHop(IpNextHop.ipAddress(ip));
+    }
+
+    @Override
+    public Collection<Route> getRoutesForNextHop(RouteTableType table,
+                                                 NextHop nextHop) {
+        List<Route> routes = new LinkedList<>();
+        routes.addAll(routeTables.get(table).getRoutesForNextHop(nextHop));
+        return routes;
     }
 
     @Override
     public void updateNextHop(IpAddress ip, NextHopData nextHopData) {
         checkNotNull(ip);
         checkNotNull(nextHopData);
-        Collection<Route> routes = getDefaultRouteTable(ip).getRoutesForNextHop(ip);
+        Collection<Route> routes = getDefaultRouteTable(ip)
+                .getRoutesForNextHop(IpNextHop.ipAddress(ip));
 
         if (!routes.isEmpty() && !nextHopData.equals(nextHops.get(ip))) {
             NextHopData oldNextHopData = nextHops.put(ip, nextHopData);
 
             for (Route route : routes) {
-                if (oldNextHopData == null) {
-                    notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_ADDED,
-                            new ResolvedRoute(route, nextHopData.mac(), nextHopData.location())));
-                } else {
-                    notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_UPDATED,
-                            new ResolvedRoute(route, nextHopData.mac(), nextHopData.location()),
-                            new ResolvedRoute(route, oldNextHopData.mac(), oldNextHopData.location())));
+                if (route instanceof IpRoute) {
+                    IpRoute ipRoute = (IpRoute) route;
+                    if (oldNextHopData == null) {
+                        notifyDelegate(new RouteEvent(RouteEvent
+                                                              .Type.ROUTE_ADDED,
+                                                      new ResolvedRoute(ipRoute,
+                                                                        nextHopData.mac(),
+                                                                        nextHopData.location())));
+                    } else {
+                        notifyDelegate(new RouteEvent(RouteEvent
+                                                              .Type.ROUTE_UPDATED,
+                                                      new ResolvedRoute(ipRoute,
+                                                                        nextHopData.mac(),
+                                                                        nextHopData.location()),
+                                                      new ResolvedRoute(ipRoute,
+                                                                        oldNextHopData.mac(),
+                                                                        oldNextHopData.location())));
+                    }
                 }
             }
         }
@@ -149,10 +191,16 @@ public class LocalRouteStore extends AbstractStore<RouteEvent, RouteStoreDelegat
         checkNotNull(ip);
         checkNotNull(nextHopData);
         if (nextHops.remove(ip, nextHopData)) {
-            Collection<Route> routes = getDefaultRouteTable(ip).getRoutesForNextHop(ip);
+            Collection<Route> routes = getDefaultRouteTable(ip)
+                    .getRoutesForNextHop(IpNextHop.ipAddress(ip));
             for (Route route : routes) {
-                notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_REMOVED,
-                        new ResolvedRoute(route, nextHopData.mac(), nextHopData.location())));
+                if (route instanceof IpRoute) {
+                    IpRoute ipRoute = (IpRoute) route;
+                    notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_REMOVED,
+                                                  new ResolvedRoute(ipRoute,
+                                                                    nextHopData.mac(),
+                                                                    nextHopData.location())));
+                }
             }
         }
     }
@@ -168,140 +216,127 @@ public class LocalRouteStore extends AbstractStore<RouteEvent, RouteStoreDelegat
     }
 
     private RouteTable getDefaultRouteTable(Route route) {
-        return getDefaultRouteTable(route.prefix().address());
+        RouteTableType tableType = null;
+        if (route instanceof IpRoute) {
+            IpAddress ip = ((IpRoute) route).prefix().address();
+            tableType = (ip.isIp4()) ? RouteTableType.IPV4
+                    : RouteTableType.IPV6;
+        } else if (route instanceof EvpnRoute) {
+            IpAddress ip = ((EvpnRoute) route).prefixIp().address();
+            tableType = (ip.isIp4()) ? RouteTableType.EVPN_IPV4
+                    : RouteTableType.EVPN_IPV6;
+        } else if (route instanceof EvpnInstanceRoute) {
+            IpAddress ip = ((EvpnInstanceRoute) route).prefix().address();
+            tableType = (ip.isIp4()) ? RouteTableType.EVPN_IPV4
+                    : RouteTableType.EVPN_IPV6;
+        }
+        return routeTables.get(tableType);
     }
 
-    private RouteTable getDefaultRouteTable(IpAddress ip) {
-        RouteTableId routeTableId = (ip.isIp4()) ? IPV4 : IPV6;
-        return routeTables.get(routeTableId);
+    private IpRouteTable getDefaultRouteTable(IpAddress ip) {
+        RouteTableType routeTableId = (ip.isIp4()) ? RouteTableType.IPV4
+                : RouteTableType.IPV6;
+        return (IpRouteTable) routeTables.get(routeTableId);
     }
 
-    /**
-     * Route table into which routes can be placed.
-     */
-    private class RouteTable {
-        private final InvertedRadixTree<Route> routeTable;
 
-        private final Map<IpPrefix, Route> routes = new ConcurrentHashMap<>();
-        private final Multimap<IpAddress, Route> reverseIndex =
-                Multimaps.synchronizedMultimap(HashMultimap.create());
+    //New code start from here.
+    private class IpRouteTable implements RouteTable {
+
+        private final InvertedRadixTree<IpRoute> routeTable;
+
+        private final Map<IpPrefix, IpRoute> routes = new ConcurrentHashMap<>();
+        private final Multimap<IpAddress, IpRoute> reverseIndex = Multimaps
+                .synchronizedMultimap(HashMultimap.create());
 
         /**
          * Creates a new route table.
          */
-        public RouteTable() {
-            routeTable = new ConcurrentInvertedRadixTree<>(
-                    new DefaultByteArrayNodeFactory());
+        public IpRouteTable() {
+            routeTable = new ConcurrentInvertedRadixTree<>(new DefaultByteArrayNodeFactory());
         }
 
-        /**
-         * Adds or updates the route in the route table.
-         *
-         * @param route route to update
-         */
+        @Override
         public void update(Route route) {
             synchronized (this) {
-                Route oldRoute = routes.put(route.prefix(), route);
+                IpRoute ipRoute = (IpRoute) route;
+                IpRoute oldRoute = routes.put(ipRoute.prefix(), ipRoute);
+                routeTable.put(createBinaryString(ipRoute.prefix()), ipRoute);
+                reverseIndex.put(ipRoute.ipNextHop(), ipRoute);
 
-                // No need to proceed if the new route is the same
-                if (route.equals(oldRoute)) {
+                if (oldRoute != null) {
+                    reverseIndex.remove(oldRoute.ipNextHop(), oldRoute);
+
+                    if (reverseIndex.get(oldRoute.ipNextHop()).isEmpty()) {
+                        nextHops.remove(oldRoute.ipNextHop());
+                    }
+                }
+
+                if (ipRoute.equals(oldRoute)) {
+                    // No need to send events if the new route is the same
                     return;
                 }
 
-                NextHopData oldNextHopData = null;
-                ResolvedRoute oldResolvedRoute = null;
-                if (oldRoute != null) {
-                    oldNextHopData = nextHops.get(oldRoute.nextHop());
-                    if (oldNextHopData != null) {
-                        oldResolvedRoute = new ResolvedRoute(oldRoute,
-                                oldNextHopData.mac(), oldNextHopData.location());
-                    }
-                }
+                NextHopData nextHopMac = nextHops.get(ipRoute.ipNextHop());
 
-                routeTable.put(createBinaryString(route.prefix()), route);
-
-                // TODO manage routes from multiple providers
-
-                reverseIndex.put(route.nextHop(), route);
-
-                if (oldRoute != null) {
-                    reverseIndex.remove(oldRoute.nextHop(), oldRoute);
-
-                    if (reverseIndex.get(oldRoute.nextHop()).isEmpty()) {
-                        nextHops.remove(oldRoute.nextHop());
-                    }
-                }
-
-                NextHopData nextHopData = nextHops.get(route.nextHop());
-
-                if (oldRoute != null && !oldRoute.nextHop().equals(route.nextHop())) {
-                    // We don't know the new MAC address yet so delete the route
-                    // Don't send ROUTE_REMOVED if the route was unresolved
-                    if (nextHopData == null && oldNextHopData != null) {
+                if (oldRoute != null
+                        && !oldRoute.ipNextHop().equals(ipRoute.ipNextHop())) {
+                    if (nextHopMac == null) {
+                        // We don't know the new MAC address yet so delete the
+                        // route
                         notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_REMOVED,
-                                oldResolvedRoute));
-                    // We know the new MAC address so update the route
-                    } else if (nextHopData != null && oldNextHopData != null) {
+                                                      new ResolvedRoute(oldRoute,
+                                                                        null, null)));
+                    } else {
+                        // We know the new MAC address so update the route
                         notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_UPDATED,
-                                new ResolvedRoute(route, nextHopData.mac(), nextHopData.location()),
-                                oldResolvedRoute));
+                                                      new ResolvedRoute(ipRoute,
+                                                                        nextHopMac.mac(), nextHopMac.location())));
                     }
                     return;
                 }
 
-                if (nextHopData != null) {
+                if (nextHopMac != null) {
                     notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_ADDED,
-                            new ResolvedRoute(route, nextHopData.mac(), nextHopData.location())));
+                                                  new ResolvedRoute(ipRoute,
+                                                                    nextHopMac.mac(), nextHopMac.location())));
                 }
             }
         }
 
-        /**
-         * Removes the route from the route table.
-         *
-         * @param route route to remove
-         */
+        @Override
         public void remove(Route route) {
             synchronized (this) {
-                Route removed = routes.remove(route.prefix());
-                routeTable.remove(createBinaryString(route.prefix()));
+                IpRoute ipRoute = (IpRoute) route;
+                IpRoute removed = routes.remove(ipRoute.prefix());
+                routeTable.remove(createBinaryString(ipRoute.prefix()));
 
                 if (removed != null) {
                     reverseIndex.remove(removed.nextHop(), removed);
-                    NextHopData oldNextHopData = getNextHop(removed.nextHop());
-                    // Don't send ROUTE_REMOVED if the route was unresolved
-                    if (oldNextHopData != null) {
-                        notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_REMOVED,
-                                new ResolvedRoute(route, oldNextHopData.mac(),
-                                        oldNextHopData.location())));
-                    }
+                    notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_REMOVED,
+                                                  new ResolvedRoute(ipRoute,
+                                                                    null, null)));
                 }
             }
         }
 
-        /**
-         * Returns the routes pointing to a particular next hop.
-         *
-         * @param ip next hop IP address
-         * @return routes for the next hop
-         */
-        public Collection<Route> getRoutesForNextHop(IpAddress ip) {
-            return reverseIndex.get(ip);
+        @Override
+        public Collection<Route> getRoutesForNextHop(NextHop nextHop) {
+            List<Route> routes = new LinkedList<Route>();
+            IpNextHop ipNextHop = (IpNextHop) nextHop;
+            routes.addAll(reverseIndex.get(ipNextHop.ip()));
+            return routes;
         }
 
-        /**
-         * Returns all routes in the route table.
-         *
-         * @return all routes
-         */
+        @Override
         public Collection<Route> getRoutes() {
-            Iterator<KeyValuePair<Route>> it =
-                    routeTable.getKeyValuePairsForKeysStartingWith("").iterator();
+            Iterator<KeyValuePair<IpRoute>> it = routeTable
+                    .getKeyValuePairsForKeysStartingWith("").iterator();
 
-            List<Route> routes = new LinkedList<>();
+            List<Route> routes = new LinkedList<Route>();
 
             while (it.hasNext()) {
-                KeyValuePair<Route> entry = it.next();
+                KeyValuePair<IpRoute> entry = it.next();
                 routes.add(entry.getValue());
             }
 
@@ -314,19 +349,270 @@ public class LocalRouteStore extends AbstractStore<RouteEvent, RouteStoreDelegat
          * @param ip IP address to look up
          * @return most specific prefix containing the given
          */
-        public Route longestPrefixMatch(IpAddress ip) {
-            Iterable<Route> prefixes =
-                    routeTable.getValuesForKeysPrefixing(createBinaryString(ip.toIpPrefix()));
+        public IpRoute longestPrefixMatch(IpAddress ip) {
+            Iterable<IpRoute> prefixes = routeTable
+                    .getValuesForKeysPrefixing(createBinaryString(ip
+                                                                          .toIpPrefix()));
 
-            Iterator<Route> it = prefixes.iterator();
+            Iterator<IpRoute> it = prefixes.iterator();
 
-            Route route = null;
+            IpRoute route = null;
             while (it.hasNext()) {
                 route = it.next();
             }
 
             return route;
         }
+
+        private String createBinaryString(IpPrefix ipPrefix) {
+            byte[] octets = ipPrefix.address().toOctets();
+            StringBuilder result = new StringBuilder(ipPrefix.prefixLength());
+            result.append("0");
+            for (int i = 0; i < ipPrefix.prefixLength(); i++) {
+                int byteOffset = i / Byte.SIZE;
+                int bitOffset = i % Byte.SIZE;
+                int mask = 1 << (Byte.SIZE - 1 - bitOffset);
+                byte value = octets[byteOffset];
+                boolean isSet = ((value & mask) != 0);
+                result.append(isSet ? "1" : "0");
+            }
+
+            return result.toString();
+        }
+
     }
 
+    private class EvpnRouteTable implements RouteTable {
+        private Map<EvpnInstanceName, EvpnInstanceRouteTable>
+                evpnRouteTables = new HashMap<>();
+
+        @Override
+        public void update(Route route) {
+
+            if (route instanceof EvpnRoute) {
+                EvpnRoute evpnRoute = (EvpnRoute) route;
+                if (evpnRouteTables.get(EvpnInstanceName.evpnName("evpn-public")) == null) {
+
+                    EvpnInstanceRouteTable evpnInstanceRouteTable = new
+                            EvpnInstanceRouteTable(EvpnInstanceName
+                                                           .evpnName("evpn-public"));
+                    evpnRouteTables.put(EvpnInstanceName.evpnName("evpn-public"),
+                                        evpnInstanceRouteTable);
+                }
+                evpnRouteTables.get(EvpnInstanceName.evpnName("evpn-public"))
+                        .update(evpnRoute);
+
+            } else if (route instanceof EvpnInstanceRoute) {
+                EvpnInstanceRoute evpnInstanceRoute = (EvpnInstanceRoute) route;
+                if (evpnRouteTables
+                        .get(evpnInstanceRoute.evpnInstanceName()) == null) {
+                    EvpnInstanceRouteTable evpnInstanceRouteTable = new
+                            EvpnInstanceRouteTable(evpnInstanceRoute
+                                                           .evpnInstanceName());
+                    evpnRouteTables.put(evpnInstanceRoute.evpnInstanceName(),
+                                        evpnInstanceRouteTable);
+                }
+                evpnRouteTables.get(evpnInstanceRoute.evpnInstanceName())
+                        .update(evpnInstanceRoute);
+            }
+        }
+
+        @Override
+        public void remove(Route route) {
+            if (route instanceof EvpnRoute) {
+                EvpnRoute evpnRoute = (EvpnRoute) route;
+                evpnRouteTables.get(EvpnInstanceName.evpnName("evpn-public"))
+                        .remove(evpnRoute);
+
+            } else if (route instanceof EvpnInstanceRoute) {
+                EvpnInstanceRoute evpnInstanceRoute = (EvpnInstanceRoute) route;
+                evpnRouteTables.get(evpnInstanceRoute.evpnInstanceName())
+                        .remove(evpnInstanceRoute);
+            }
+        }
+
+        @Override
+        public Collection<Route> getRoutes() {
+            if (evpnRouteTables == null) {
+                return Collections.emptySet();
+            }
+            Collection<Route> list = Lists.newLinkedList();
+            evpnRouteTables.keySet().forEach(evpnName -> {
+                list.addAll(evpnRouteTables.get(evpnName).getRoutes());
+            });
+            return list;
+        }
+
+        @Override
+        public Collection<Route> getRoutesForNextHop(NextHop nextHop) {
+            if (evpnRouteTables == null) {
+                return Collections.emptySet();
+            }
+            Collection<Route> list = Lists.newLinkedList();
+            evpnRouteTables.keySet().forEach(evpnName -> {
+                list.addAll(evpnRouteTables.get(evpnName)
+                                    .getRoutesForNextHop(nextHop));
+            });
+            return list;
+        }
+
+        private class EvpnInstanceRouteTable {
+            private final EvpnInstanceName evpnName;
+            private final Map<EvpnInstancePrefix, EvpnInstanceRoute>
+                    routesMap = new ConcurrentHashMap<>();
+            private final Multimap<EvpnInstanceNextHop, EvpnInstanceRoute>
+                    reverseIndex = Multimaps
+                    .synchronizedMultimap(HashMultimap.create());
+            private final Map<EvpnPrefix, EvpnRoute> routesMapPublic = new
+                    ConcurrentHashMap<>();
+            private final Multimap<EvpnNextHop, EvpnRoute>
+                    reverseIndexPublic = Multimaps
+                    .synchronizedMultimap(HashMultimap.create());
+
+            public EvpnInstanceRouteTable(EvpnInstanceName evpnName) {
+                this.evpnName = evpnName;
+            }
+
+            public void update(Route route) {
+                synchronized (this) {
+                    if (route instanceof EvpnRoute) {
+                        EvpnRoute evpnRoute = (EvpnRoute) route;
+                        EvpnPrefix prefix = EvpnPrefix
+                                .evpnPrefix(evpnRoute.routeDistinguisher(),
+                                            evpnRoute.prefixMac(),
+                                            evpnRoute.prefixIp());
+                        EvpnNextHop nextHop = EvpnNextHop
+                                .evpnNextHop(evpnRoute.ipNextHop(),
+                                             evpnRoute.importRouteTarget(),
+                                             evpnRoute.exportRouteTarget(),
+                                             evpnRoute.label());
+                        EvpnRoute oldRoute = routesMapPublic.put(prefix, evpnRoute);
+                        reverseIndexPublic.put(nextHop, evpnRoute);
+
+                        if (oldRoute != null) {
+                            EvpnNextHop odlNextHop = EvpnNextHop
+                                    .evpnNextHop(oldRoute.ipNextHop(),
+                                                 oldRoute.importRouteTarget(),
+                                                 oldRoute.exportRouteTarget(),
+                                                 oldRoute.label());
+                            reverseIndex.remove(odlNextHop, oldRoute);
+                        }
+
+                        if (evpnRoute.equals(oldRoute)) {
+                            // No need to send events if the new route is the same
+                            return;
+                        }
+
+                        if (oldRoute != null) {
+                            notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_REMOVED,
+                                                          oldRoute));
+                            log.debug("Notify route remove event {}",
+                                      evpnRoute);
+                            // notifyDelegate(new
+                            // EvpnRouteEvent(EvpnRouteEvent.Type.ROUTE_UPDATED,
+                            // route));
+                        }
+                        notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_ADDED,
+                                                      evpnRoute));
+                        log.debug("Notify route add event {}", evpnRoute);
+                    } else if (route instanceof EvpnInstanceRoute) {
+                        EvpnInstanceRoute evpnInstanceRoute = (EvpnInstanceRoute) route;
+                        if (evpnInstanceRoute.evpnInstanceName()
+                                .equals(evpnName)) {
+                            EvpnInstanceRoute oldRoute = routesMap
+                                    .put(evpnInstanceRoute.getevpnInstancePrefix(),
+                                         evpnInstanceRoute);
+
+                            reverseIndex.put(evpnInstanceRoute
+                                                     .getEvpnInstanceNextHop(),
+                                             evpnInstanceRoute);
+
+                            if (oldRoute != null) {
+                                EvpnInstanceNextHop odlNextHop = EvpnInstanceNextHop
+                                        .evpnNextHop(oldRoute.getNextHopl(),
+                                                     oldRoute.getLabel());
+                                reverseIndex.remove(odlNextHop, oldRoute);
+                            }
+
+                            if (evpnInstanceRoute.equals(oldRoute)) {
+                                // No need to send events if the new route is the same
+                                return;
+                            }
+
+                            if (oldRoute != null) {
+                                notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_REMOVED,
+                                                              oldRoute));
+                                log.debug("Notify route remove event {}", evpnInstanceRoute);
+                            }
+                            notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_ADDED,
+                                                          evpnInstanceRoute));
+                            log.debug("Notify route add event {}", evpnInstanceRoute);
+                            notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_ADDED,
+                                                          evpnInstanceRoute));
+                        }
+                    }
+                }
+            }
+
+            public void remove(Route route) {
+                synchronized (this) {
+                    if (route instanceof EvpnInstanceRoute) {
+                        EvpnInstanceRoute evpnInstanceRoute = (EvpnInstanceRoute) route;
+                        if (evpnInstanceRoute.evpnInstanceName()
+                                .equals(evpnName)) {
+                            EvpnInstanceRoute removedRoute = routesMap
+                                    .remove(evpnInstanceRoute.getevpnInstancePrefix());
+                            if (removedRoute != null) {
+                                reverseIndex.remove(removedRoute.nextHop(),
+                                                    removedRoute);
+                                notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_REMOVED,
+                                                              removedRoute));
+                            }
+                        }
+                    } else if (route instanceof EvpnRoute) {
+                        EvpnRoute evpnRoute = (EvpnRoute) route;
+                        EvpnPrefix prefix = EvpnPrefix
+                                .evpnPrefix(evpnRoute.routeDistinguisher(),
+                                            evpnRoute.prefixMac(),
+                                            evpnRoute.prefixIp());
+                        EvpnRoute removedRoute = routesMapPublic.remove(prefix);
+
+                        if (removedRoute != null) {
+                            reverseIndex.remove(removedRoute.nextHop(),
+                                                removedRoute);
+                            notifyDelegate(new RouteEvent(RouteEvent.Type.ROUTE_REMOVED,
+                                                          removedRoute));
+                        }
+                    }
+                }
+            }
+
+            public Collection<Route> getRoutes() {
+                List<Route> routes = new LinkedList<>();
+                //fetch the private routes and return.
+                for (Map.Entry<EvpnInstancePrefix, EvpnInstanceRoute> e :
+                        routesMap.entrySet()) {
+                    routes.add(e.getValue());
+                }
+                //fetch the public routes and return.
+                for (Map.Entry<EvpnPrefix, EvpnRoute> e : routesMapPublic.entrySet()) {
+                    routes.add(e.getValue());
+                }
+                return routes;
+            }
+
+            public Collection<Route> getRoutesForNextHop(NextHop nextHop) {
+                List<Route> routes = new LinkedList<Route>();
+                if (nextHop instanceof EvpnNextHop) {
+                    EvpnNextHop evpnInstancenextHop = (EvpnNextHop) nextHop;
+                    routes.addAll(reverseIndexPublic.get(evpnInstancenextHop));
+                } else if (nextHop instanceof EvpnInstanceNextHop) {
+                    EvpnInstanceNextHop evpnInstancenextHop
+                            = (EvpnInstanceNextHop) nextHop;
+                    routes.addAll(reverseIndex.get(evpnInstancenextHop));
+                }
+                return routes;
+            }
+        }
+    }
 }

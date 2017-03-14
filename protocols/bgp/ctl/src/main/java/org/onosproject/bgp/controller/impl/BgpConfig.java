@@ -60,6 +60,7 @@ public class BgpConfig implements BgpCfg {
     private BgpPeerManagerImpl peerManager;
     private BgpController bgpController;
     private boolean rpdCapability;
+    private boolean evpnCapability;
 
     /*
      * Constructor to initialize the values.
@@ -139,6 +140,16 @@ public class BgpConfig implements BgpCfg {
     @Override
     public void setFlowSpecRpdCapability(boolean rpdCapability) {
         this.rpdCapability = rpdCapability;
+    }
+
+    @Override
+    public boolean getEvpnCapability() {
+        return this.evpnCapability;
+    }
+
+    @Override
+    public void setEvpnCapability(boolean evpnCapability) {
+        this.evpnCapability = evpnCapability;
     }
 
     @Override

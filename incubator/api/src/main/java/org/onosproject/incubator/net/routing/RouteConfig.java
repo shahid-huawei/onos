@@ -43,7 +43,7 @@ public class RouteConfig extends Config<ApplicationId> {
             try {
                 IpPrefix prefix = IpPrefix.valueOf(route.path(PREFIX).asText());
                 IpAddress nextHop = IpAddress.valueOf(route.path(NEXTHOP).asText());
-                routes.add(new Route(Route.Source.STATIC, prefix, nextHop));
+                routes.add(new IpRoute(IpRoute.Source.STATIC, prefix, nextHop));
             } catch (IllegalArgumentException e) {
                 // Ignores routes that cannot be parsed correctly
             }

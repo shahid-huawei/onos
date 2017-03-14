@@ -26,6 +26,7 @@ import org.onosproject.bgp.controller.BgpLocalRib;
 import org.onosproject.bgp.controller.BgpPeer;
 import org.onosproject.bgp.controller.BgpSessionInfo;
 import org.onosproject.bgpio.exceptions.BgpParseException;
+import org.onosproject.bgpio.protocol.BgpEvpnNlri;
 import org.onosproject.bgpio.protocol.BgpFactories;
 import org.onosproject.bgpio.protocol.BgpFactory;
 import org.onosproject.bgpio.protocol.BgpLSNlri;
@@ -167,7 +168,7 @@ public class BgpPeerImpl implements BgpPeer {
      * @param flowSpec flow specification details
      * @param wideCommunity for route policy
      */
-    public final void sendFlowSpecUpdateMessageToPeer(FlowSpecOperation operType, BgpFlowSpecRouteKey routeKey,
+    public final void sendFlowSpecUpdateMessageToPeer(OperationType operType, BgpFlowSpecRouteKey routeKey,
                                                       BgpFlowSpecNlri flowSpec, WideCommunity wideCommunity) {
 
         List<BgpValueType> attributesList = new LinkedList<>();
@@ -231,28 +232,92 @@ public class BgpPeerImpl implements BgpPeer {
             attributesList.add(wideCommunity);
         }
 
-        if (operType == FlowSpecOperation.ADD) {
+        if (operType == OperationType.ADD) {
             attributesList.add(new MpReachNlri(flowSpec, Constants.AFI_FLOWSPEC_VALUE, sAfi));
-        } else if (operType == FlowSpecOperation.DELETE) {
+        } else if (operType == OperationType.DELETE) {
             attributesList.add(new MpUnReachNlri(flowSpec, Constants.AFI_FLOWSPEC_VALUE, sAfi));
         }
 
         BgpMessage msg = Controller.getBgpMessageFactory4().updateMessageBuilder()
-                                                           .setBgpPathAttributes(attributesList).build();
+                .setBgpPathAttributes(attributesList).build();
 
         log.debug("Sending flow spec update message to {}", channel.getRemoteAddress());
         channel.write(Collections.singletonList(msg));
     }
 
     @Override
-    public void updateFlowSpec(FlowSpecOperation operType, BgpFlowSpecRouteKey routeKey,
-                                     BgpFlowSpecNlri flowSpec, WideCommunity wideCommunity) {
+    public void updateFlowSpec(OperationType operType, BgpFlowSpecRouteKey routeKey,
+                               BgpFlowSpecNlri flowSpec, WideCommunity wideCommunity) {
         Preconditions.checkNotNull(operType, "flow specification operation type cannot be null");
         Preconditions.checkNotNull(routeKey, "flow specification prefix cannot be null");
         Preconditions.checkNotNull(flowSpec, "flow specification details cannot be null");
         Preconditions.checkNotNull(flowSpec.fsActionTlv(), "flow specification action cannot be null");
 
         sendFlowSpecUpdateMessageToPeer(operType, routeKey, flowSpec, wideCommunity);
+    }
+
+    @Override
+    public void updateEvpnNlri(OperationType operType, IpAddress nextHop,
+                               List<BgpValueType> extcommunity,
+                               List<BgpEvpnNlri> evpnNlris) {
+        Preconditions.checkNotNull(operType, "Operation type cannot be null");
+        Preconditions.checkNotNull(evpnNlris, "Evpn nlri cannot be null");
+        sendEvpnUpdateMessageToPeer(operType, nextHop, extcommunity, evpnNlris);
+    }
+
+    private void sendEvpnUpdateMessageToPeer(OperationType operType,
+                                             IpAddress nextHop,
+                                             List<BgpValueType> extcommunity,
+                                             List<BgpEvpnNlri> evpnNlris) {
+        List<BgpValueType> attributesList = new LinkedList<>();
+        byte sessionType = sessionInfo.isIbgpSession() ? (byte) 0 : (byte) 1;
+        short afi = Constants.AFI_EVPN_VALUE;
+        byte safi = Constants.SAFI_EVPN_VALUE;
+        boolean isEvpnCapabilitySet = isCapabilitySupported(MultiProtocolExtnCapabilityTlv.TYPE,
+                                                            afi, safi);
+
+        if (!isEvpnCapabilitySet) {
+            log.debug("Peer do not support BGP Evpn capability",
+                      channel.getRemoteAddress());
+            return;
+        }
+        attributesList.add(new Origin((byte) 0));
+
+        if (sessionType != 0) {
+            // EBGP
+            if (!bgpController.getConfig().getLargeASCapability()) {
+                List<Short> aspathSet = new ArrayList<>();
+                List<Short> aspathSeq = new ArrayList<>();
+                aspathSeq.add((short) bgpController.getConfig().getAsNumber());
+
+                AsPath asPath = new AsPath(aspathSet, aspathSeq);
+                attributesList.add(asPath);
+            } else {
+                List<Integer> aspathSet = new ArrayList<>();
+                List<Integer> aspathSeq = new ArrayList<>();
+                aspathSeq.add(bgpController.getConfig().getAsNumber());
+
+                As4Path as4Path = new As4Path(aspathSet, aspathSeq);
+                attributesList.add(as4Path);
+            }
+        } else {
+            attributesList.add(new AsPath());
+        }
+
+        if (!extcommunity.isEmpty()) {
+            attributesList.add(new BgpExtendedCommunity(extcommunity));
+        }
+        if (operType == OperationType.ADD || operType == OperationType.UPDATE) {
+            attributesList
+                    .add(new MpReachNlri(evpnNlris, afi, safi, nextHop.getIp4Address()));
+        } else if (operType == OperationType.DELETE) {
+            attributesList.add(new MpUnReachNlri(evpnNlris, afi, safi));
+        }
+
+        BgpMessage msg = Controller.getBgpMessageFactory4()
+                .updateMessageBuilder().setBgpPathAttributes(attributesList)
+                .build();
+        channel.write(Collections.singletonList(msg));
     }
 
     @Override

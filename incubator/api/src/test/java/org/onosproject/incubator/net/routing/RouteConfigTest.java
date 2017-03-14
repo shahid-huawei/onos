@@ -46,9 +46,10 @@ public class RouteConfigTest {
     private static final IpPrefix PREFIX3 = IpPrefix.valueOf("30.0.0.1/24");
     private static final IpAddress NEXTHOP1 = IpAddress.valueOf("192.168.1.1");
     private static final IpAddress NEXTHOP2 = IpAddress.valueOf("192.168.2.1");
-    private static final Route ROUTE1 = new Route(Route.Source.STATIC, PREFIX1, NEXTHOP1);
-    private static final Route ROUTE2 = new Route(Route.Source.STATIC, PREFIX2, NEXTHOP1);
-    private static final Route ROUTE3 = new Route(Route.Source.STATIC, PREFIX3, NEXTHOP2);
+    private static final IpRoute ROUTE1 = new IpRoute(IpRoute.Source.STATIC,
+                                                      PREFIX1, NEXTHOP1);
+    private static final IpRoute ROUTE2 = new IpRoute(IpRoute.Source.STATIC, PREFIX2, NEXTHOP1);
+    private static final IpRoute ROUTE3 = new IpRoute(IpRoute.Source.STATIC, PREFIX3, NEXTHOP2);
     private static final Set<Route> EXPECTED_ROUTES = ImmutableSet.of(ROUTE1, ROUTE2, ROUTE3);
     private static final Set<Route> UNEXPECTED_ROUTES = ImmutableSet.of(ROUTE1, ROUTE2);
 

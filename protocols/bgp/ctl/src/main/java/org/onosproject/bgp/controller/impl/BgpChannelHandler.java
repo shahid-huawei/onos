@@ -679,6 +679,8 @@ class BgpChannelHandler extends IdleStateAwareChannelHandler {
 
         bgpId = Ip4Address.valueOf(bgpconfig.getRouterId()).toInt();
 
+        boolean evpnCapability = bgpconfig.getEvpnCapability();
+
         if (flowSpec == BgpCfg.FlowSpec.IPV4) {
             flowSpecStatus = true;
         } else if (flowSpec == BgpCfg.FlowSpec.VPNV4) {
@@ -694,6 +696,7 @@ class BgpChannelHandler extends IdleStateAwareChannelHandler {
                 .setLargeAsCapabilityTlv(bgpconfig.getLargeASCapability())
                 .setFlowSpecCapabilityTlv(flowSpecStatus)
                 .setVpnFlowSpecCapabilityTlv(vpnFlowSpecStatus)
+                .setEvpnCapabilityTlv(evpnCapability)
                 .setFlowSpecRpdCapabilityTlv(bgpconfig.flowSpecRpdCapability()).build();
         log.debug("Sending open message to {}", channel.getRemoteAddress());
         channel.write(Collections.singletonList(msg));
@@ -810,6 +813,9 @@ class BgpChannelHandler extends IdleStateAwareChannelHandler {
         boolean isMultiProtocolFlowSpecCapability = false;
         boolean isMultiProtocolVpnFlowSpecCapability = false;
         BgpCfg.FlowSpec flowSpec = h.bgpconfig.flowSpecCapability();
+        boolean isEvpnCapability = false;
+        boolean isEvpnCapabilityCfg = h.bgpconfig
+                .getEvpnCapability();
 
         if (flowSpec == BgpCfg.FlowSpec.IPV4) {
             isFlowSpecIpv4CapabilityCfg = true;
@@ -826,6 +832,10 @@ class BgpChannelHandler extends IdleStateAwareChannelHandler {
                 tempCapability = (MultiProtocolExtnCapabilityTlv) tlv;
                 if (Constants.SAFI_FLOWSPEC_VALUE == tempCapability.getSafi()) {
                     isMultiProtocolFlowSpecCapability = true;
+                }
+
+                if (Constants.SAFI_EVPN_VALUE == tempCapability.getSafi()) {
+                    isEvpnCapability = true;
                 }
 
                 if (Constants.VPN_SAFI_FLOWSPEC_VALUE == tempCapability.getSafi()) {
@@ -876,6 +886,15 @@ class BgpChannelHandler extends IdleStateAwareChannelHandler {
             if (!isMultiProtocolFlowSpecCapability) {
                 tempTlv = new MultiProtocolExtnCapabilityTlv(Constants.AFI_FLOWSPEC_VALUE,
                                                              RES, Constants.SAFI_FLOWSPEC_VALUE);
+                unSupportedCapabilityTlv.add(tempTlv);
+            }
+        }
+
+        if (isEvpnCapabilityCfg) {
+            if (!isEvpnCapability) {
+                tempTlv = new MultiProtocolExtnCapabilityTlv(Constants.AFI_EVPN_VALUE,
+                        RES,
+                        Constants.SAFI_EVPN_VALUE);
                 unSupportedCapabilityTlv.add(tempTlv);
             }
         }

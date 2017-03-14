@@ -65,11 +65,11 @@ import org.onosproject.net.flowobjective.FlowObjectiveService;
 import org.onosproject.net.flowobjective.ForwardingObjective;
 import org.onosproject.net.flowobjective.NextObjective;
 import org.onosproject.net.flowobjective.ObjectiveContext;
+import org.onosproject.routing.InterfaceProvisionRequest;
 import org.onosproject.routing.NextHop;
 import org.onosproject.routing.NextHopGroupKey;
-import org.onosproject.routing.RouterInfo;
-import org.onosproject.routing.InterfaceProvisionRequest;
 import org.onosproject.routing.Router;
+import org.onosproject.routing.RouterInfo;
 import org.onosproject.routing.RoutingService;
 import org.onosproject.routing.config.RouterConfigHelper;
 import org.onosproject.routing.config.RoutersConfig;
@@ -155,7 +155,7 @@ public class FibInstaller {
 
     private ConfigFactory<ApplicationId, McastConfig> mcastConfigFactory =
             new ConfigFactory<ApplicationId, McastConfig>(SubjectFactories.APP_SUBJECT_FACTORY,
-                    McastConfig.class, "multicast") {
+                                                          McastConfig.class, "multicast") {
                 @Override
                 public McastConfig createConfig() {
                     return new McastConfig();
@@ -233,7 +233,7 @@ public class FibInstaller {
         routeService.removeListener(routeListener);
 
         //clean up the routes.
-        for (Map.Entry<IpPrefix, IpAddress> routes: prefixToNextHop.entrySet()) {
+        for (Map.Entry<IpPrefix, IpAddress> routes : prefixToNextHop.entrySet()) {
             deleteRoute(new ResolvedRoute(routes.getKey(), null, null, null));
         }
 
@@ -257,11 +257,11 @@ public class FibInstaller {
 
         Integer nextId;
         synchronized (this) {
-            nextId = nextHops.get(route.nextHop());
+            nextId = nextHops.get(route.ipNextHop());
         }
 
         flowObjectiveService.forward(deviceId,
-                generateRibForwardingObj(route.prefix(), nextId).add());
+                                     generateRibForwardingObj(route.prefix(), nextId).add());
         log.trace("Sending forwarding objective {} -> nextId:{}", route, nextId);
     }
 
@@ -275,7 +275,7 @@ public class FibInstaller {
         }*/
 
         flowObjectiveService.forward(deviceId,
-                generateRibForwardingObj(route.prefix(), null).remove());
+                                     generateRibForwardingObj(route.prefix(), null).remove());
     }
 
     private ForwardingObjective.Builder generateRibForwardingObj(IpPrefix prefix,
@@ -321,18 +321,19 @@ public class FibInstaller {
     }
 
     private synchronized void addNextHop(ResolvedRoute route) {
-        prefixToNextHop.put(route.prefix(), route.nextHop());
+        prefixToNextHop.put(route.prefix(), route.ipNextHop());
         if (nextHopsCount.count(route.nextHop()) == 0) {
             // There was no next hop in the multiset
-            Interface egressIntf = interfaceService.getMatchingInterface(route.nextHop());
+
+            Interface egressIntf = interfaceService.getMatchingInterface(route.ipNextHop());
             if (egressIntf == null) {
                 log.warn("no egress interface found for {}", route);
                 return;
             }
 
-            NextHopGroupKey groupKey = new NextHopGroupKey(route.nextHop());
+            NextHopGroupKey groupKey = new NextHopGroupKey(route.ipNextHop());
 
-            NextHop nextHop = new NextHop(route.nextHop(), route.nextHopMac(), groupKey);
+            NextHop nextHop = new NextHop(route.ipNextHop(), route.nextHopMac(), groupKey);
 
             TrafficTreatment.Builder treatment = DefaultTrafficTreatment.builder()
                     .setEthSrc(egressIntf.mac())
@@ -369,12 +370,12 @@ public class FibInstaller {
             if (routeToNextHop) {
                 // Install route to next hop
                 ForwardingObjective fob =
-                        generateRibForwardingObj(IpPrefix.valueOf(route.nextHop(), 32), nextId).add();
+                        generateRibForwardingObj(IpPrefix.valueOf(route.ipNextHop(), 32), nextId).add();
                 flowObjectiveService.forward(deviceId, fob);
             }
         }
 
-        nextHopsCount.add(route.nextHop());
+        nextHopsCount.add(route.ipNextHop());
     }
 
     /*private synchronized Group deleteNextHop(IpPrefix prefix) {
@@ -416,7 +417,7 @@ public class FibInstaller {
     /**
      * Installs or removes flow objectives relating to an interface.
      *
-     * @param intf interface to update objectives for
+     * @param intf    interface to update objectives for
      * @param install true to install the objectives, false to remove them
      */
     private void updateInterfaceFilters(InterfaceProvisionRequest intf, boolean install) {
@@ -428,7 +429,7 @@ public class FibInstaller {
      * Installs or removes unicast filtering objectives relating to an interface.
      *
      * @param routerIntf interface to update objectives for
-     * @param install true to install the objectives, false to remove them
+     * @param install    true to install the objectives, false to remove them
      */
     private void updateFilteringObjective(InterfaceProvisionRequest routerIntf, boolean install) {
         Interface intf = routerIntf.intf();
@@ -439,8 +440,8 @@ public class FibInstaller {
         FilteringObjective.Builder fob = DefaultFilteringObjective.builder();
         // first add filter for the interface
         fob.withKey(Criteria.matchInPort(intf.connectPoint().port()))
-            .addCondition(Criteria.matchEthDst(intf.mac()))
-            .addCondition(Criteria.matchVlanId(intf.vlan()));
+                .addCondition(Criteria.matchEthDst(intf.mac()))
+                .addCondition(Criteria.matchVlanId(intf.vlan()));
         fob.withPriority(PRIORITY_OFFSET);
         if (intf.vlan() == VlanId.NONE) {
             TrafficTreatment tt = DefaultTrafficTreatment.builder()
@@ -459,7 +460,7 @@ public class FibInstaller {
      * Installs or removes multicast filtering objectives relating to an interface.
      *
      * @param routerIntf interface to update objectives for
-     * @param install true to install the objectives, false to remove them
+     * @param install    true to install the objectives, false to remove them
      */
     private void updateMcastFilteringObjective(InterfaceProvisionRequest routerIntf, boolean install) {
         Interface intf = routerIntf.intf();
@@ -471,7 +472,7 @@ public class FibInstaller {
         // first add filter for the interface
         fob.withKey(Criteria.matchInPort(intf.connectPoint().port()))
                 .addCondition(Criteria.matchEthDstMasked(MacAddress.IPV4_MULTICAST,
-                        MacAddress.IPV4_MULTICAST_MASK))
+                                                         MacAddress.IPV4_MULTICAST_MASK))
                 .addCondition(Criteria.matchVlanId(ingressVlan()));
         fob.withPriority(PRIORITY_OFFSET);
         TrafficTreatment tt = DefaultTrafficTreatment.builder()
@@ -513,17 +514,19 @@ public class FibInstaller {
     private class InternalRouteListener implements RouteListener {
         @Override
         public void event(RouteEvent event) {
-            ResolvedRoute route = event.subject();
-            switch (event.type()) {
-            case ROUTE_ADDED:
-            case ROUTE_UPDATED:
-                updateRoute(route);
-                break;
-            case ROUTE_REMOVED:
-                deleteRoute(route);
-                break;
-            default:
-                break;
+            if (event.subject() instanceof ResolvedRoute) {
+                ResolvedRoute route = (ResolvedRoute) event.subject();
+                switch (event.type()) {
+                    case ROUTE_ADDED:
+                    case ROUTE_UPDATED:
+                        updateRoute(route);
+                        break;
+                    case ROUTE_REMOVED:
+                        deleteRoute(route);
+                        break;
+                    default:
+                        break;
+                }
             }
         }
     }
@@ -536,19 +539,19 @@ public class FibInstaller {
         public void event(NetworkConfigEvent event) {
             if (event.configClass().equals(RoutingService.ROUTER_CONFIG_CLASS)) {
                 switch (event.type()) {
-                case CONFIG_ADDED:
-                case CONFIG_UPDATED:
-                    processRouterConfig();
-                    break;
-                case CONFIG_REGISTERED:
-                    break;
-                case CONFIG_UNREGISTERED:
-                    break;
-                case CONFIG_REMOVED:
-                    cleanUp();
-                    break;
-                default:
-                    break;
+                    case CONFIG_ADDED:
+                    case CONFIG_UPDATED:
+                        processRouterConfig();
+                        break;
+                    case CONFIG_REGISTERED:
+                        break;
+                    case CONFIG_UNREGISTERED:
+                        break;
+                    case CONFIG_REMOVED:
+                        cleanUp();
+                        break;
+                    default:
+                        break;
                 }
             }
         }

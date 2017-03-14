@@ -20,7 +20,6 @@ import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
-
 import org.onosproject.bgp.controller.BgpCfg;
 import org.onosproject.bgp.controller.BgpPeerCfg;
 import org.onosproject.core.ApplicationId;
@@ -127,6 +126,7 @@ public class BgpCfgProvider extends AbstractProvider {
         bgpConfig.setHoldTime(config.holdTime());
         bgpConfig.setMaxSession(config.maxSession());
         bgpConfig.setLargeASCapability(config.largeAsCapability());
+        bgpConfig.setEvpnCapability(config.evpnCapability());
 
         if (config.flowSpecCapability() == null) {
             bgpConfig.setFlowSpecCapability(BgpCfg.FlowSpec.NONE);
@@ -181,7 +181,7 @@ public class BgpCfgProvider extends AbstractProvider {
         bgpConfig.setHoldTime(config.holdTime());
         bgpConfig.setMaxSession(config.maxSession());
         bgpConfig.setLargeASCapability(config.largeAsCapability());
-
+        bgpConfig.setEvpnCapability(config.evpnCapability());
         if (config.flowSpecCapability() == null) {
             bgpConfig.setFlowSpecCapability(BgpCfg.FlowSpec.NONE);
         } else {

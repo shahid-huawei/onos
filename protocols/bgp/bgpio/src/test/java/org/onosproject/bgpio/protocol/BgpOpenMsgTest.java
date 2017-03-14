@@ -371,4 +371,79 @@ public class BgpOpenMsgTest {
 
         assertThat(message, instanceOf(BgpOpenMsg.class));
     }
+
+    /**
+     * This test case checks open message with EVPN capability.
+     */
+    @Test
+    public void openMessageTest11() throws BgpParseException {
+
+        // OPEN Message with capabilities.
+        byte[] openMsg = new byte[] {(byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
+                (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
+                (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
+                0x00, 0x3d, 0x01,  //BGP header
+                0x04, 0x00, (byte) 0xc8, 0x00, (byte) 0xb4, (byte) 0xc0,
+                (byte) 0xa8, 0x07, 0x35, //version,AS number, hold time
+                0x20, //Optional parameter length
+                0x02, 0x1e, //
+                0x01, 0x04, 0x00, 0x01, 0x00, 0x01, //optional tlv(tlv type, length, afi(2b), resv, safi)
+                0x41, 0x04, 0x00, 0x00, 0x00, (byte) 0xc8, //optional tlv
+                0x01, 0x04, 0x40, 0x04, 0x00, 0x47, //optional tlv
+                0x01, 0x04, 0x00, 0x01, 0x00, (byte) 0x85, //optional tlv
+                0x01, 0x04, 0x00, 0x19, (byte) 0x85, 0x46 }; //EVPN capability(tlv type, length, afi(2b), resv, safi)
+
+        byte[] testOpenMsg;
+        ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
+        buffer.writeBytes(openMsg);
+
+        BgpMessageReader<BgpMessage> reader = BgpFactories.getGenericReader();
+        BgpMessage message;
+        BgpHeader bgpHeader = new BgpHeader();
+
+        message = reader.readFrom(buffer, bgpHeader);
+
+        assertThat(message, instanceOf(BgpOpenMsg.class));
+
+        ChannelBuffer buf = ChannelBuffers.dynamicBuffer();
+        message.writeTo(buf);
+
+        int readLen = buf.writerIndex();
+        testOpenMsg = new byte[readLen];
+        buf.readBytes(testOpenMsg, 0, readLen);
+
+        assertThat(testOpenMsg, is(openMsg));
+    }
+    /**
+     * In this test case, Invalid multiprotocol capability length is given as input and expecting an exception.
+     */
+    @Test(expected = BgpParseException.class)
+    public void openMessageTest12() throws BgpParseException {
+
+        // OPEN Message with capabilities.
+        byte[] openMsg = new byte[] {(byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
+                (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
+                (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff,
+                0x00, 0x3d, 0x01,  //BGP header
+                0x04, 0x00, (byte) 0xc8, 0x00, (byte) 0xb4, (byte) 0xc0,
+                (byte) 0xa8, 0x07, 0x35, //version,AS number, hold time
+                0x20, //Optional parameter length
+                0x02, 0x1e, //
+                0x01, 0x04, 0x00, 0x01, 0x00, 0x01, //optional tlv(tlv type, length, afi(2b), resv, safi)
+                0x41, 0x04, 0x00, 0x00, 0x00, (byte) 0xc8, //optional tlv
+                0x01, 0x04, 0x40, 0x04, 0x00, 0x47, //optional tlv
+                0x01, 0x04, 0x00, 0x01, 0x00, (byte) 0x85, //optional tlv
+                0x01, 0x05, 0x00, 0x19, (byte) 0x85, 0x46 }; //EVPN capability(tlv type, length, afi(2b), resv, safi)
+
+        ChannelBuffer buffer = ChannelBuffers.dynamicBuffer();
+        buffer.writeBytes(openMsg);
+
+        BgpMessageReader<BgpMessage> reader = BgpFactories.getGenericReader();
+        BgpMessage message;
+        BgpHeader bgpHeader = new BgpHeader();
+        message = reader.readFrom(buffer, bgpHeader);
+
+        assertThat(message, instanceOf(BgpOpenMsg.class));
+    }
+
 }

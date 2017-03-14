@@ -28,7 +28,7 @@ import org.onosproject.incubator.net.intf.Interface;
 import org.onosproject.incubator.net.intf.InterfaceEvent;
 import org.onosproject.incubator.net.intf.InterfaceListener;
 import org.onosproject.incubator.net.intf.InterfaceService;
-import org.onosproject.incubator.net.routing.Route;
+import org.onosproject.incubator.net.routing.IpRoute;
 import org.onosproject.incubator.net.routing.RouteService;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.Host;
@@ -55,7 +55,6 @@ import static org.slf4j.LoggerFactory.getLogger;
 
 /**
  * Manages PIMInterfaces.
- *
  * TODO: Do we need to add a ServiceListener?
  */
 @Component(immediate = true)
@@ -251,14 +250,15 @@ public class PimInterfaceManager implements PimInterfaceService {
     }
 
     private PimInterface getSourceInterface(McastRoute route) {
-        Route unicastRoute = unicastRouteService.longestPrefixMatch(route.source());
+        IpRoute unicastRoute = unicastRouteService.longestPrefixMatch(route
+                                                                              .source());
 
         if (unicastRoute == null) {
             log.warn("No route to source {}", route.source());
             return null;
         }
 
-        Interface intf = interfaceService.getMatchingInterface(unicastRoute.nextHop());
+        Interface intf = interfaceService.getMatchingInterface(unicastRoute.ipNextHop());
 
         if (intf == null) {
             log.warn("No interface with route to next hop {}", unicastRoute.nextHop());
@@ -272,7 +272,7 @@ public class PimInterfaceManager implements PimInterfaceService {
             return null;
         }
 
-        Set<Host> hosts = hostService.getHostsByIp(unicastRoute.nextHop());
+        Set<Host> hosts = hostService.getHostsByIp(unicastRoute.ipNextHop());
         Host host = null;
         for (Host h : hosts) {
             if (h.vlan().equals(intf.vlan())) {
@@ -284,7 +284,7 @@ public class PimInterfaceManager implements PimInterfaceService {
             return null;
         }
 
-        pimInterface.addRoute(route, unicastRoute.nextHop(), host.mac());
+        pimInterface.addRoute(route, unicastRoute.ipNextHop(), host.mac());
 
         return pimInterface;
     }
@@ -301,22 +301,22 @@ public class PimInterfaceManager implements PimInterfaceService {
             }
 
             switch (event.type()) {
-            case CONFIG_REGISTERED:
-            case CONFIG_UNREGISTERED:
-                break;
-            case CONFIG_ADDED:
-            case CONFIG_UPDATED:
-                ConnectPoint cp = (ConnectPoint) event.subject();
-                PimInterfaceConfig config = networkConfig.getConfig(
-                        cp, PIM_INTERFACE_CONFIG_CLASS);
+                case CONFIG_REGISTERED:
+                case CONFIG_UNREGISTERED:
+                    break;
+                case CONFIG_ADDED:
+                case CONFIG_UPDATED:
+                    ConnectPoint cp = (ConnectPoint) event.subject();
+                    PimInterfaceConfig config = networkConfig.getConfig(
+                            cp, PIM_INTERFACE_CONFIG_CLASS);
 
-                updateInterface(config);
-                break;
-            case CONFIG_REMOVED:
-                removeInterface((ConnectPoint) event.subject());
-                break;
-            default:
-                break;
+                    updateInterface(config);
+                    break;
+                case CONFIG_REMOVED:
+                    removeInterface((ConnectPoint) event.subject());
+                    break;
+                default:
+                    break;
             }
         }
     }
@@ -329,21 +329,21 @@ public class PimInterfaceManager implements PimInterfaceService {
         @Override
         public void event(InterfaceEvent event) {
             switch (event.type()) {
-            case INTERFACE_ADDED:
-                PimInterfaceConfig config = networkConfig.getConfig(
-                        event.subject().connectPoint(), PIM_INTERFACE_CONFIG_CLASS);
+                case INTERFACE_ADDED:
+                    PimInterfaceConfig config = networkConfig.getConfig(
+                            event.subject().connectPoint(), PIM_INTERFACE_CONFIG_CLASS);
 
-                if (config != null) {
-                    updateInterface(config);
-                }
-                break;
-            case INTERFACE_UPDATED:
-                break;
-            case INTERFACE_REMOVED:
-                removeInterface(event.subject().connectPoint());
-                break;
-            default:
-                break;
+                    if (config != null) {
+                        updateInterface(config);
+                    }
+                    break;
+                case INTERFACE_UPDATED:
+                    break;
+                case INTERFACE_REMOVED:
+                    removeInterface(event.subject().connectPoint());
+                    break;
+                default:
+                    break;
 
             }
         }
@@ -356,17 +356,17 @@ public class PimInterfaceManager implements PimInterfaceService {
         @Override
         public void event(McastEvent event) {
             switch (event.type()) {
-            case ROUTE_ADDED:
-                addRoute(event.subject().route());
-                break;
-            case ROUTE_REMOVED:
-                removeRoute(event.subject().route());
-                break;
-            case SOURCE_ADDED:
-            case SINK_ADDED:
-            case SINK_REMOVED:
-            default:
-                break;
+                case ROUTE_ADDED:
+                    addRoute(event.subject().route());
+                    break;
+                case ROUTE_REMOVED:
+                    removeRoute(event.subject().route());
+                    break;
+                case SOURCE_ADDED:
+                case SINK_ADDED:
+                case SINK_REMOVED:
+                default:
+                    break;
             }
         }
     }

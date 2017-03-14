@@ -22,9 +22,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.karaf.shell.commands.Command;
 import org.apache.karaf.shell.commands.Option;
 import org.onosproject.cli.AbstractShellCommand;
+import org.onosproject.incubator.net.routing.IpRoute;
 import org.onosproject.incubator.net.routing.Route;
 import org.onosproject.incubator.net.routing.RouteService;
-import org.onosproject.incubator.net.routing.RouteTableId;
+import org.onosproject.incubator.net.routing.RouteTableType;
 
 import java.util.Collection;
 import java.util.Map;
@@ -54,14 +55,14 @@ public class RoutesListCommand extends AbstractShellCommand {
     protected void execute() {
         RouteService service = AbstractShellCommand.get(RouteService.class);
 
-        Map<RouteTableId, Collection<Route>> allRoutes = service.getAllRoutes();
+        Map<RouteTableType, Collection<Route>> allRoutes = service.getAllRoutes();
 
         if (summary) {
             if (outputJson()) {
                 ObjectMapper mapper = new ObjectMapper();
                 ObjectNode result = mapper.createObjectNode();
-                result.put("totalRoutes4", allRoutes.get(new RouteTableId("ipv4")).size());
-                result.put("totalRoutes6", allRoutes.get(new RouteTableId("ipv6")).size());
+                result.put("totalRoutes4", allRoutes.get(RouteTableType.IPV4).size());
+                result.put("totalRoutes6", allRoutes.get(RouteTableType.IPV6).size());
                 print("%s", result);
             } else {
                 allRoutes.forEach((id, routes) -> print(FORMAT_SUMMARY, id, routes.size()));
@@ -73,14 +74,20 @@ public class RoutesListCommand extends AbstractShellCommand {
         if (outputJson()) {
             ObjectMapper mapper = new ObjectMapper();
             ObjectNode result = mapper.createObjectNode();
-            result.set("routes4", json(allRoutes.get(new RouteTableId("ipv4"))));
-            result.set("routes6", json(allRoutes.get(new RouteTableId("ipv6"))));
+            result.set("routes4", json(allRoutes.get(RouteTableType.IPV4)));
+            result.set("routes6", json(allRoutes.get(RouteTableType.IPV6)));
             print("%s", result);
         } else {
             allRoutes.forEach((id, routes) -> {
                 print(FORMAT_TABLE, id);
                 print(FORMAT_HEADER);
-                routes.forEach(r -> print(FORMAT_ROUTE, r.prefix(), r.nextHop(), r.source()));
+                routes.forEach(r -> {
+                    if (r instanceof IpRoute) {
+                        IpRoute ipRoute = (IpRoute) r;
+                        print(FORMAT_ROUTE, ipRoute.prefix(),
+                              ipRoute.nextHop(), ipRoute.source());
+                    }
+                });
                 print(FORMAT_TOTAL, routes.size());
                 print("");
             });
@@ -113,9 +120,9 @@ public class RoutesListCommand extends AbstractShellCommand {
      */
     private ObjectNode json(ObjectMapper mapper, Route route) {
         ObjectNode result = mapper.createObjectNode();
-
-        result.put("prefix", route.prefix().toString());
-        result.put("nextHop", route.nextHop().toString());
+        IpRoute ipRoute = (IpRoute) route;
+        result.put("prefix", ipRoute.prefix().toString());
+        result.put("nextHop", ipRoute.nextHop().toString());
 
         return result;
     }

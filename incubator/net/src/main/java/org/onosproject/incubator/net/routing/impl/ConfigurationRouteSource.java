@@ -22,6 +22,7 @@ import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.onosproject.core.ApplicationId;
+import org.onosproject.incubator.net.routing.IpRoute;
 import org.onosproject.incubator.net.routing.Route;
 import org.onosproject.incubator.net.routing.RouteAdminService;
 import org.onosproject.incubator.net.routing.RouteConfig;
@@ -31,8 +32,8 @@ import org.onosproject.net.config.NetworkConfigListener;
 import org.onosproject.net.config.NetworkConfigRegistry;
 import org.onosproject.net.config.basics.SubjectFactories;
 
+import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Route source that installs static routes configured in the network configuration.
@@ -78,12 +79,34 @@ public class ConfigurationRouteSource {
     private void processRouteConfigUpdated(NetworkConfigEvent event) {
         Set<Route> routes = ((RouteConfig) event.config().get()).getRoutes();
         Set<Route> prevRoutes = ((RouteConfig) event.prevConfig().get()).getRoutes();
-        Set<Route> pendingRemove = prevRoutes.stream()
-                .filter(prevRoute -> routes.stream()
-                        .noneMatch(route -> route.prefix().equals(prevRoute.prefix())))
-                .collect(Collectors.toSet());
-        Set<Route> pendingUpdate = routes.stream()
-                .filter(route -> !pendingRemove.contains(route)).collect(Collectors.toSet());
+        Set<Route> pendingRemove = new HashSet<>();
+        Set<Route> pendingUpdate = new HashSet<>();
+        IpRoute ipPrevRoute = null;
+        for (Route prevRoute : prevRoutes) {
+            if (prevRoute instanceof IpRoute) {
+                ipPrevRoute = (IpRoute) prevRoute;
+            }
+            for (Route route : routes) {
+                if (route instanceof IpRoute) {
+                    IpRoute ipRoute = (IpRoute) route;
+                    if ((ipPrevRoute != null)
+                            && !ipRoute.prefix().equals(ipPrevRoute.prefix())) {
+                        pendingRemove.add(ipRoute);
+                    }
+                }
+            }
+        }
+        IpRoute ipRoute = null;
+        for (Route route : routes) {
+            if (route instanceof IpRoute) {
+                ipRoute = (IpRoute) route;
+            }
+
+            if (!pendingRemove.contains(route)) {
+                pendingUpdate.add(ipRoute);
+            }
+        }
+
         routeService.update(pendingUpdate);
         routeService.withdraw(pendingRemove);
     }
@@ -99,17 +122,17 @@ public class ConfigurationRouteSource {
         public void event(NetworkConfigEvent event) {
             if (event.configClass().equals(RouteConfig.class)) {
                 switch (event.type()) {
-                case CONFIG_ADDED:
-                    processRouteConfigAdded(event);
-                    break;
-                case CONFIG_UPDATED:
-                    processRouteConfigUpdated(event);
-                    break;
-                case CONFIG_REMOVED:
-                    processRouteConfigRemoved(event);
-                    break;
-                default:
-                    break;
+                    case CONFIG_ADDED:
+                        processRouteConfigAdded(event);
+                        break;
+                    case CONFIG_UPDATED:
+                        processRouteConfigUpdated(event);
+                        break;
+                    case CONFIG_REMOVED:
+                        processRouteConfigRemoved(event);
+                        break;
+                    default:
+                        break;
                 }
             }
         }

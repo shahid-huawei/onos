@@ -47,7 +47,7 @@ public interface RouteStore extends Store<RouteEvent, RouteStoreDelegate> {
      *
      * @return route table IDs
      */
-    Set<RouteTableId> getRouteTables();
+    Set<RouteTableType> getRouteTables();
 
     /**
      * Returns the routes for a particular route table.
@@ -55,7 +55,7 @@ public interface RouteStore extends Store<RouteEvent, RouteStoreDelegate> {
      * @param table route table
      * @return collection of route in the table
      */
-    Collection<Route> getRoutes(RouteTableId table);
+    Collection<Route> getRoutes(RouteTableType table);
 
     /**
      * Performs a longest prefix match with the given IP address.
@@ -63,7 +63,7 @@ public interface RouteStore extends Store<RouteEvent, RouteStoreDelegate> {
      * @param ip IP to look up
      * @return longest prefix match route
      */
-    Route longestPrefixMatch(IpAddress ip);
+    IpRoute longestPrefixMatch(IpAddress ip);
 
     /**
      * Returns the routes that point to the given next hop IP address.
@@ -74,9 +74,17 @@ public interface RouteStore extends Store<RouteEvent, RouteStoreDelegate> {
     Collection<Route> getRoutesForNextHop(IpAddress ip);
 
     /**
+     * Returns the routes for the given next hop.
+     *
+     * @param nextHop next hop IP address
+     * @return routes for this next hop
+     */
+    Collection<Route> getRoutesForNextHop(RouteTableType id, NextHop nextHop);
+
+    /**
      * Updates a next hop information in the store.
      *
-     * @param ip IP address
+     * @param ip          IP address
      * @param nextHopData Information of the next hop
      */
     void updateNextHop(IpAddress ip, NextHopData nextHopData);
@@ -84,7 +92,7 @@ public interface RouteStore extends Store<RouteEvent, RouteStoreDelegate> {
     /**
      * Removes a next hop information from the store.
      *
-     * @param ip IP address
+     * @param ip          IP address
      * @param nextHopData Information of the next hop
      */
     void removeNextHop(IpAddress ip, NextHopData nextHopData);
