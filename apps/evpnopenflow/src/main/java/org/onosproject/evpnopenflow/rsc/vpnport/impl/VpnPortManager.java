@@ -25,6 +25,7 @@ import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.ReferenceCardinality;
 import org.apache.felix.scr.annotations.Service;
 import org.onlab.packet.IpAddress;
+import org.onlab.packet.IpPrefix;
 import org.onlab.packet.MacAddress;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.core.ApplicationId;
@@ -44,15 +45,23 @@ import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.service.EventuallyConsistentMap;
 import org.onosproject.store.service.StorageService;
 import org.onosproject.store.service.WallClockTimestamp;
+import org.onosproject.vtnrsc.AllocationPool;
 import org.onosproject.vtnrsc.BindingHostId;
+import org.onosproject.vtnrsc.DefaultSubnet;
+import org.onosproject.vtnrsc.DefaultTenantNetwork;
 import org.onosproject.vtnrsc.DefaultVirtualPort;
 import org.onosproject.vtnrsc.FixedIp;
+import org.onosproject.vtnrsc.HostRoute;
+import org.onosproject.vtnrsc.PhysicalNetwork;
+import org.onosproject.vtnrsc.SegmentationId;
+import org.onosproject.vtnrsc.Subnet;
 import org.onosproject.vtnrsc.SubnetId;
 import org.onosproject.vtnrsc.TenantId;
 import org.onosproject.vtnrsc.TenantNetwork;
 import org.onosproject.vtnrsc.TenantNetworkId;
 import org.onosproject.vtnrsc.VirtualPort;
 import org.onosproject.vtnrsc.VirtualPortId;
+import org.onosproject.vtnrsc.subnet.SubnetService;
 import org.onosproject.vtnrsc.tenantnetwork.TenantNetworkService;
 import org.onosproject.vtnrsc.virtualport.VirtualPortService;
 import org.slf4j.Logger;
@@ -117,6 +126,8 @@ public class VpnPortManager implements VpnPortService {
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected TenantNetworkService tenantNetworkService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected SubnetService subnetService;
     @Activate
 
     public void activate() {
@@ -240,6 +251,72 @@ public class VpnPortManager implements VpnPortService {
     }
 
     /**
+     * Creates dummy gluon network to the VTN
+     *
+     * @param state        the base port state
+     * @param adminStateUp the base port admin status
+     * @param tenantID     the base port tenant ID
+     */
+    private void createDummyGluonNetwork(boolean adminStateUp, String state,
+                                         TenantId tenantID) {
+        String id = "11111111-1111-1111-1111-111111111111";
+        String name = "GluonNetwork";
+        String segmentationID = "50";
+        String physicalNetwork = "None";
+
+        TenantNetwork network = new DefaultTenantNetwork(TenantNetworkId.networkId(id), name,
+                                                         adminStateUp,
+                                                         TenantNetwork.State.valueOf(state),
+                                                         false, tenantID,
+                                                         false,
+                                                         TenantNetwork.Type.LOCAL,
+                                                         PhysicalNetwork.physicalNetwork(physicalNetwork),
+                                                         SegmentationId.segmentationId(segmentationID));
+
+        Set<TenantNetwork> networksSet = Sets.newHashSet(network);
+        tenantNetworkService.createNetworks(networksSet);
+    }
+
+
+    /**
+     * Creates dummy gluon subnet to the VTN
+     *
+     * @param tenantId the base port tenant ID
+     */
+    public void createDummySubnet(TenantId tenantId) {
+        String id = "22222222-2222-2222-2222-222222222222";
+        String subnetName = "GluonSubnet";
+        String cidr = "0.0.0.0/0";
+        String gatewayIp = "0.0.0.0";
+        Set<HostRoute> hostRoutes = Sets.newHashSet();
+        String ipV6AddressMode = null;
+        String ipV6RaMode = null;
+        TenantNetworkId tenantNetworkId = null;
+        Set<AllocationPool> allocationPools = Sets.newHashSet();
+        Iterable<TenantNetwork> networks
+                = tenantNetworkService.getNetworks();
+
+        for (TenantNetwork tenantNetwork : networks) {
+            if (tenantNetwork.name().equals("GluonNetwork")) {
+                tenantNetworkId = tenantNetwork.id();
+                break;
+            }
+        }
+        Subnet subnet = new DefaultSubnet(SubnetId.subnetId(id), subnetName,
+                                          tenantNetworkId,
+                                          tenantId, IpAddress.Version.INET,
+                                          cidr == null ? null : IpPrefix.valueOf(cidr),
+                                          gatewayIp == null ? null : IpAddress.valueOf(gatewayIp),
+                                          false, false, hostRoutes,
+                                          ipV6AddressMode == null ? null : Subnet.Mode.valueOf(ipV6AddressMode),
+                                          ipV6RaMode == null ? null : Subnet.Mode.valueOf(ipV6RaMode),
+                                          allocationPools);
+
+        Set<Subnet> subnetsSet = Sets.newHashSet(subnet);
+        subnetService.createSubnets(subnetsSet);
+    }
+
+    /**
      * Returns a collection of vpnPort from subnetNodes.
      *
      * @param vpnPortNodes the vpnPort json node
@@ -278,6 +355,9 @@ public class VpnPortManager implements VpnPortService {
             TenantId tenantId = bPort.tenantId();
             DeviceId deviceId = bPort.deviceId();
             BindingHostId bindingHostId = bPort.bindingHostId();
+            // Creates Dummy Gluon Network and Subnet
+            createDummyGluonNetwork(adminStateUp, state, tenantId);
+            createDummySubnet(tenantId);
 
             Iterable<TenantNetwork> networks
                     = tenantNetworkService.getNetworks();

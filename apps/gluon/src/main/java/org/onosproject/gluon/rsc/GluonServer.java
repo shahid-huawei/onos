@@ -299,6 +299,7 @@ public class GluonServer {
                                     if (subKeyIndex ==
                                             ((getProtonSubkeys().size()) - 1)) {
                                         cancelled();
+                                        return;
                                     }
 
                                     handleBatchData(subKeyIndex + 1);
