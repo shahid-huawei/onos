@@ -381,18 +381,19 @@ public class GluonServer {
             JsonNode jsonNode = mapper.readTree(result);
             String action = jsonNode.get(GLUON_ACTION).asText();
             JsonNode nodes = jsonNode.get(GLUON_NODE).get(GLUON_NODES);
+            if (null != nodes) {
+                for (JsonNode confNode : nodes) {
+                    String key = confNode.get(GLUON_KEY).asText();
+                    long mIndex = confNode.get(GLUON_MOD_INDEX).asLong();
+                    long cIndex = confNode.get(GLUON_CREATE_INDEX).asLong();
+                    String value = confNode.get(GLUON_VALUE).asText();
+                    JsonNode modifyValue = mapper.readTree(value.replace("\\", ""));
+                    response = new GluonConfig(action, key,
+                                               modifyValue, mIndex, cIndex);
+                    getCount++;
+                    processEtcdResponse(response);
 
-            for (JsonNode confNode : nodes) {
-                String key = confNode.get(GLUON_KEY).asText();
-                long mIndex = confNode.get(GLUON_MOD_INDEX).asLong();
-                long cIndex = confNode.get(GLUON_CREATE_INDEX).asLong();
-                String value = confNode.get(GLUON_VALUE).asText();
-                JsonNode modifyValue = mapper.readTree(value.replace("\\", ""));
-                response = new GluonConfig(action, key,
-                                           modifyValue, mIndex, cIndex);
-                getCount++;
-                processEtcdResponse(response);
-
+                }
             }
         } catch (IOException e) {
             log.error(E_BATCH_PROCESSING, e.getMessage());

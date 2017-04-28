@@ -55,6 +55,8 @@ public final class EvpnConstants {
     public static final String VPN_PORT_TARGET = "VpnBinding";
     public static final String BASEPORT = "Port";
     public static final String VPN_AF_TARGET = "VpnAfConfig";
+    public static final String BGP_PEERING = "BGPPeering";
+    public static final String DATA_PLANE_TUNNEL = "DataplaneTunnel";
     public static final String VPN_PORT_STORE = "evpn-port-store";
     public static final String BASE_PORT_STORE = "evpn-baseport-store";
     public static final String VPN_INSTANCE_STORE =
@@ -112,8 +114,8 @@ public final class EvpnConstants {
     static final String VPN_INSTANCE_ID = "vpnInstanceId";
     public static final String FORMAT_VPN_INSTANCE = "Id=%s, description=%s,"
             + " name=%s, routeDistinguisher=%s, routeTarget=%s";
-    public static final String FORMAT_VPN_PORT = "   EVPN port id=%-32s " +
-            "EVPN instance id %-18s";
+    public static final String FORMAT_VPN_PORT = "   EVPN port id=%-32s, " +
+            "EVPN instance id=%-18s";
     public static final String FORMAT_PRIVATE_ROUTE = "   %-18s %-15s %-10s";
     public static final String FORMAT_PUBLIC_ROUTE = "   %-18s %-18s %-10s";
     public static final String SWITCH_CHANNEL_ID = "channelId";

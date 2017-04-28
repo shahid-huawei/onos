@@ -68,9 +68,9 @@ public class BgpConfiguration extends AbstractShellCommand {
             this.bgpController = get(BgpController.class);
             bgpCfg = bgpController.getConfig();
             print("RouterID = %s, ASNumber = %s, MaxSession = %s, HoldingTime = %s, LsCapabality = %s," +
-                            " LargeAsCapabality = %s, FlowSpecCapabality = %s", bgpCfg.getRouterId(),
-                    bgpCfg.getAsNumber(), bgpCfg.getMaxSession(), bgpCfg.getHoldTime(),
-                    bgpCfg.getLsCapability(), bgpCfg.getLargeASCapability(), bgpCfg.flowSpecCapability());
+                          " LargeAsCapabality = %s, FlowSpecCapabality = %s", bgpCfg.getRouterId(),
+                  bgpCfg.getAsNumber(), bgpCfg.getMaxSession(), bgpCfg.getHoldTime(),
+                  bgpCfg.getLsCapability(), bgpCfg.getLargeASCapability(), bgpCfg.flowSpecCapability());
 
         } catch (Exception e) {
             log.debug("Error occurred while displaying BGP configuration: {}", e.getMessage());
@@ -87,29 +87,37 @@ public class BgpConfiguration extends AbstractShellCommand {
             TreeMap<String, BgpPeerCfg> displayPeerTree = bgpCfg.getPeerTree();
             Set<String> peerKey = displayPeerTree.keySet();
             if (peer != null) {
-                if (!peerKey.isEmpty()) {
+                if (peerKey.size() > 0) {
                     for (String peerIdKey : peerKey) {
                         bgpPeerCfg = displayPeerTree.get(peerIdKey);
                         bgpConnectPeer = bgpPeerCfg.connectPeer();
                         if (peerIdKey.equals(peer)) {
                             print("PeerRouterID = %s, PeerHoldingTime = %s, ASNumber = %s, PeerState = %s," +
-                                            " PeerPort = %s, ConnectRetryCounter = %s",
-                                    peer, bgpPeerCfg.getHoldtime(), bgpPeerCfg.getAsNumber(),
-                                    bgpPeerCfg.getState(), bgpConnectPeer.getPeerPort(),
-                                    bgpConnectPeer.getConnectRetryCounter());
+                                          " PeerPort = %s, ConnectRetryCounter = %s",
+                                  peer, bgpPeerCfg.getHoldtime(), bgpPeerCfg.getAsNumber(),
+                                  bgpPeerCfg.getState(), bgpConnectPeer.getPeerPort(),
+                                  bgpConnectPeer.getConnectRetryCounter());
                         }
                     }
                 }
             } else {
-                if (!peerKey.isEmpty()) {
+                if (peerKey.size() > 0) {
                     for (String peerIdKey : peerKey) {
                         bgpPeerCfg = displayPeerTree.get(peerIdKey);
                         bgpConnectPeer = bgpPeerCfg.connectPeer();
-                        print("PeerRouterID = %s, PeerHoldingTime = %s, ASNumber = %s, PeerState = %s, PeerPort = %s," +
-                                        " ConnectRetryCounter = %s",
-                                bgpPeerCfg.getPeerRouterId(), bgpPeerCfg.getHoldtime(), bgpPeerCfg.getAsNumber(),
-                                bgpPeerCfg.getState(), bgpConnectPeer.getPeerPort(),
-                                bgpConnectPeer.getConnectRetryCounter());
+
+                        if (bgpConnectPeer != null) {
+                            print("PeerRouterID = %s, PeerHoldingTime = %s, ASNumber = %s, PeerState = %s, PeerPort = %s," +
+                                          " ConnectRetryCounter = %s",
+                                  bgpPeerCfg.getPeerRouterId(), bgpPeerCfg.getHoldtime(), bgpPeerCfg.getAsNumber(),
+                                  bgpPeerCfg.getState(), bgpConnectPeer
+                                          .getPeerPort(),
+                                  bgpConnectPeer.getConnectRetryCounter());
+                        } else {
+                            print("PeerRouterID = %s, PeerHoldingTime = %s, ASNumber = %s, PeerState = %s",
+                                  bgpPeerCfg.getPeerRouterId(), bgpPeerCfg.getHoldtime(), bgpPeerCfg.getAsNumber(),
+                                  bgpPeerCfg.getState());
+                        }
                     }
                 }
 
