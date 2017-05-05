@@ -99,8 +99,8 @@ public class BgpEvpnNlriImpl implements BgpEvpnNlri {
                 routeNlri = BgpEvpnRouteType2Nlri.read(tempCb);
                 break;
             default:
+                log.info("Discarding, EVPN route type {}", type);
                 throw new BgpParseException(BgpErrorType.UPDATE_MESSAGE_ERROR, BgpErrorType.MISSING_WELLKNOWN_ATTRIBUTE, null);
-                    //break;
             }
             return new BgpEvpnNlriImpl(type, routeNlri);
         } else {
