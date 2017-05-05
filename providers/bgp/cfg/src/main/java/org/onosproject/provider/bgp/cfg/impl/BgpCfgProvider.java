@@ -394,7 +394,7 @@ public class BgpCfgProvider extends AbstractProvider {
                     .BgpPeerConfig(gluonBgpConfig.get("peerIP"),
                                    Integer.parseInt(gluonBgpConfig.get
                                            ("asNumber")),
-                                   20, BgpAppConfig.PEER_CONNECT_ACTIVE);
+                                   120, BgpAppConfig.PEER_CONNECT_ACTIVE);
             gluonPeers.put(peerId, peerConfig);
             log.info("Added BGP peerId={} details={} to gluonPeers", peerId,
                      peerConfig);
