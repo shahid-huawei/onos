@@ -375,13 +375,11 @@ public class BgpCfgProvider extends AbstractProvider {
         bgpConfig.setRouterId(gluonBgpConfig.get("localIP"));
         bgpConfig.setAsNumber(Integer.parseInt(gluonBgpConfig.get("asNumber")));
         bgpConfig.setLsCapability(false);
-        bgpConfig.setHoldTime((short) 20);
         bgpConfig.setMaxSession(20);
         bgpConfig.setLargeASCapability(false);
         bgpConfig.setEvpnCapability(true);
         bgpConfig.setFlowSpecCapability(BgpCfg.FlowSpec.NONE);
         bgpConfig.setFlowSpecRpdCapability(false);
-        bgpConfig.setMaxConnRetryCout(20);
 
         /* Handle Peer configuration */
         /* Add or update peers in gluonPeers*/
