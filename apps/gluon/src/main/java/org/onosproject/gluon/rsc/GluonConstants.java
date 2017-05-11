@@ -62,6 +62,8 @@ public final class GluonConstants {
             "Server has stopped successfully";
     public static final String NO_SERVER_AVAIL =
             "Server is unavailable";
+    public static final String NO_SERVER_AVAIL_ON_PORT =
+            "Server is unavailable on specified port";
     public static final String REAL_TIME_PROCESSING =
             "Started Real time etcd monitoring for {}";
     public static final String BATCH_PROCESSING =
@@ -86,7 +88,8 @@ public final class GluonConstants {
             "Server IP is not available in server pool";
     public static final String PROTON_KEY_SUPPORT =
             "Currently only net-l3vpn type supported";
-    public static final String WRONG_INPUT = "Wrong input";
+    public static final String WRONG_INPUT = "Either server is not available " +
+            "or wrong input";
     public static final String WRONG_INPUT_TYPE = "Wrong format type";
     public static final String INVALID_MODE = "Invalid mode";
     public static final String WRONG_IP_FORMAT = "Wrong IP address format";

@@ -21,6 +21,7 @@ import org.onosproject.cli.AbstractShellCommand;
 import org.onosproject.gluon.rsc.GluonServer;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.regex.Matcher;
@@ -35,6 +36,7 @@ import static org.onosproject.gluon.rsc.GluonConstants.KEY_TYPE;
 import static org.onosproject.gluon.rsc.GluonConstants.MODE_START;
 import static org.onosproject.gluon.rsc.GluonConstants.MODE_STOP;
 import static org.onosproject.gluon.rsc.GluonConstants.NO_SERVER_AVAIL;
+import static org.onosproject.gluon.rsc.GluonConstants.NO_SERVER_AVAIL_ON_PORT;
 import static org.onosproject.gluon.rsc.GluonConstants.PROTON_KEY_SUPPORT;
 import static org.onosproject.gluon.rsc.GluonConstants.WRONG_INPUT;
 import static org.onosproject.gluon.rsc.GluonConstants.WRONG_INPUT_TYPE;
@@ -73,16 +75,16 @@ public class GluonServerCommand extends AbstractShellCommand {
     public void execute() {
         try {
             if (ipAddress != null && isValidIP(ipAddress) && isValidPort(port)
-                    && isValidMode(mode)) {
+                    && isValidMode(mode) && isValidProtonKey(protonKey)
+                    && isSeverReachable()) {
                 String url = GLUON_HTTP + ipAddress + ":" + port;
-                if (!KEY_TYPE.equalsIgnoreCase(protonKey)) {
-                    print(PROTON_KEY_SUPPORT);
-                    return;
-                }
                 if (isEtcdSeverAvailable()) {
                     //Gets gluon server running version
                     version = gluonServerVersion();
                     createServer(url, protonKey, mode, version);
+                } else {
+                    log.info(NO_SERVER_AVAIL_ON_PORT);
+                    return;
                 }
             } else {
                 log.info(WRONG_INPUT);
@@ -151,6 +153,20 @@ public class GluonServerCommand extends AbstractShellCommand {
     }
 
     /**
+     * Returns boolean if given mode is valid.
+     *
+     * @return boolean
+     */
+    public boolean isValidProtonKey(String key) {
+        boolean isValidProtonKey = true;
+        if (!KEY_TYPE.equalsIgnoreCase(key)) {
+            print(PROTON_KEY_SUPPORT);
+            isValidProtonKey = false;
+        }
+        return isValidProtonKey;
+    }
+
+    /**
      * Returns version of gluon server.
      *
      * @return String
@@ -167,6 +183,29 @@ public class GluonServerCommand extends AbstractShellCommand {
     }
 
     /**
+     * Returns reachability of Gluon server.
+     *
+     * @return isSeverReachable
+     */
+    public boolean isSeverReachable() {
+        boolean isSeverReachable = false;
+        try {
+            InetAddress inet = InetAddress.getByName(ipAddress);
+            if (inet.isReachable(5000)) {
+                isSeverReachable = true;
+            } else {
+                isSeverReachable = false;
+                print(NO_SERVER_AVAIL);
+            }
+        } catch (IOException e) {
+            isSeverReachable = false;
+            log.error("Check server process is failed with {} ",
+                      e.getMessage());
+        }
+        return isSeverReachable;
+    }
+
+    /**
      * Returns availability of Gluon server.
      *
      * @return isServerAvailable
@@ -180,7 +219,7 @@ public class GluonServerCommand extends AbstractShellCommand {
             connection.connect();
             isServerAvailable = true;
         } catch (IOException e) {
-            print(NO_SERVER_AVAIL);
+            print(NO_SERVER_AVAIL_ON_PORT);
             isServerAvailable = false;
         }
         return isServerAvailable;
